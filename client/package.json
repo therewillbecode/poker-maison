@@ -56,6 +56,8 @@
     "redux-thunk": "^2.3.0",
     "reselect": "3.0.1",
     "sanitize.css": "11.0.0",
+    "ts-loader": "^6.2.2",
+    "typescript": "^3.8.3",
     "warning": "^4.0.1",
     "whatwg-fetch": "2.0.4"
   },
@@ -116,6 +118,7 @@
     "webpack-cli": "^3.0.3",
     "webpack-dev-middleware": "^3.3.3",
     "webpack-dev-server": "^3.9.0",
-    "webpack-hot-middleware": "^2.3.2"
+    "webpack-hot-middleware": "^2.3.2",
+    "@types/react": "^16.9.19"
   }
 }

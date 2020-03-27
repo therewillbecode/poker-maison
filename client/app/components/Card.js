@@ -1,4 +1,4 @@
-import React from 'react';
+import React, {Component, ReactComponentElement} from 'react';
 
 import clubs from '../../static/Clubs.svg'
 import hearts from '../../static/Hearts.svg'
@@ -49,14 +49,18 @@ const suitSVG = suit => {
   }
 }
 
-const Card = ({ rank, suit }) => (
-  <div className='card'>
-    <div className="rank">
-      <span className="monospace-font-bold">{showRank(rank)}</span>
-    </div>
-    <div className="suit">
-      <img alt={suit} src={suitSVG(suit)} />
-    </div>
-  </div>);
+export default class Card extends Component {
+  render() {
+    return (
+      <div className='card'>
+        <div className="rank">
+          <span className="monospace-font-bold">{showRank(this.props.rank)}</span>
+        </div>
+        <div className="suit">
+          <img alt={this.props.suit} src={suitSVG(this.props.suit)}/>
+        </div>
+      </div>
+    );
+  }
+}
 
-export default Card;

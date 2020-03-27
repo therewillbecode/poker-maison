@@ -1,7 +1,7 @@
 import React from 'react'
 
 import ActionPanel from './ActionPanel'
-import Board from './Board'
+import Board from './Board.tsx'
 import Seat from './Seat'
 import Card from './Card'
 
