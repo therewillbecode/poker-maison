@@ -1,4 +1,6 @@
-![alt text](https://i.ibb.co/9Gv74rZ/rsz-68747470733a2f2f692e696d6775722e636f6d2f626967355071612e706e67.png "Ten Poker")
+# Poker Maison
+
+Take your home poker games online.
 
 ## A multiplayer app crafted with Haskell and React
 
