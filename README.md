@@ -2,7 +2,6 @@
 
 ## A multiplayer app crafted with Haskell and React
 
-[![Netlify Status](https://api.netlify.com/api/v1/badges/c21ef5e4-5227-4a24-87a8-b71961650fd5/deploy-status)](https://app.netlify.com/sites/tenpoker/deploys)
 [![License: Unlicense](https://img.shields.io/badge/license-Unlicense-blue.svg)](http://unlicense.org/)
 
 ![alt text](https://s5.gifyu.com/images/ezgif.com-optimize-1e35dcba1eceb51f5.gif "Demo")
