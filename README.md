@@ -1,7 +1,5 @@
 # Poker Maison
 
-Take your home poker games online.
-
 ## A multiplayer app crafted with Haskell and React
 
 [![Netlify Status](https://api.netlify.com/api/v1/badges/c21ef5e4-5227-4a24-87a8-b71961650fd5/deploy-status)](https://app.netlify.com/sites/tenpoker/deploys)
