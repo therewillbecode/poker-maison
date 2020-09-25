@@ -2,6 +2,8 @@
 
 ## A multiplayer app crafted with Haskell and React
 
+https://news.ycombinator.com/item?id=20653278
+
 [![License: Unlicense](https://img.shields.io/badge/license-Unlicense-blue.svg)](http://unlicense.org/)
 
 ![alt text](https://s5.gifyu.com/images/ezgif.com-optimize-1e35dcba1eceb51f5.gif "Demo")
