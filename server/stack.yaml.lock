@@ -25,9 +25,37 @@ packages:
       sha256: 085c6620bff7671bef1d969652a349271c3703fbf10dd753cb63ee1cd700bca5
   original:
     hackage: servant-websockets-2.0.0@sha256:6e9e3600bced90fd52ed3d1bf632205cb21479075b20d6637153cc4567000234,2253
+- completed:
+    hackage: servant-auth-client-0.4.1.0@sha256:96d8153907a00ef05e8918ca03a972d95ecde485da0df12f6532d248f057eb60,3437
+    pantry-tree:
+      size: 480
+      sha256: 1d87e9ef405be1b7b728dfd9058ef79220398633b36996c7ff363278ed7ab459
+  original:
+    hackage: servant-auth-client-0.4.1.0@sha256:96d8153907a00ef05e8918ca03a972d95ecde485da0df12f6532d248f057eb60,3437
+- completed:
+    hackage: ekg-0.4.0.15@sha256:d6e48859a89fbbe23496f871581e44a41f97dac627c2b9db81f49b92fa066516,2031
+    pantry-tree:
+      size: 1495
+      sha256: e56e9c0eadc309a27400af106a2d3133d70ad0a3bbbb9be2c54e837ccdb4a77d
+  original:
+    hackage: ekg-0.4.0.15@sha256:d6e48859a89fbbe23496f871581e44a41f97dac627c2b9db81f49b92fa066516,2031
+- completed:
+    hackage: ekg-core-0.1.1.7@sha256:c4356aefea0e1e2f80a236d3b3f81b83b445c1e53519302e96477da0adee2e9f,2039
+    pantry-tree:
+      size: 1073
+      sha256: f403baeb7787c69c5e28f5aa1e94f78d4363beb19362d66f18de4a1aef0723fe
+  original:
+    hackage: ekg-core-0.1.1.7@sha256:c4356aefea0e1e2f80a236d3b3f81b83b445c1e53519302e96477da0adee2e9f,2039
+- completed:
+    hackage: ekg-json-0.1.0.6@sha256:e16efc1b09ae7635db3f0535335ee3e8aa666fe4bf3749783f4022020f6ca3b8,1050
+    pantry-tree:
+      size: 265
+      sha256: 09239a4e3ab0d58be0ac360d41c491df017f4a18ba558fd67909e24f14caece7
+  original:
+    hackage: ekg-json-0.1.0.6@sha256:e16efc1b09ae7635db3f0535335ee3e8aa666fe4bf3749783f4022020f6ca3b8,1050
 snapshots:
 - completed:
-    size: 525662
-    url: https://raw.githubusercontent.com/commercialhaskell/stackage-snapshots/master/lts/14/15.yaml
-    sha256: c5e673e5723931b64ef2eb5004f6d9ea3c95b58d48388dbc4de6f66b97c81f7a
-  original: lts-14.15
+    size: 567672
+    url: https://raw.githubusercontent.com/commercialhaskell/stackage-snapshots/master/lts/17/11.yaml
+    sha256: 03181cdbeb671eb605bbcf6f285bea4d094b6ac7433a0e14a9f1dd54ad995938
+  original: lts-17.11

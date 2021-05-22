@@ -5,30 +5,26 @@
 
 module Poker.Game.Privacy where
 
-import           Data.Text                      ( Text )
-
-import           Data.Functor
-import           Data.List
-import           Data.Maybe
-import           Data.Monoid
-
-import           Debug.Trace
-
-import           Control.Lens
-
-import           Poker.Game.Game
-import           Poker.Game.Utils
-import           Poker.Types
+import Control.Lens ((%~), (&), (.~))
+import Data.Text (Text)
+import Poker.Game.Game (canPubliciseActivesCards)
+import Poker.Types
+  ( Deck (Deck),
+    Game,
+    Player (..),
+    PlayerName,
+    PlayerState (In),
+    deck,
+    players,
+  )
 
 -- For players that are sat in game
 excludeOtherPlayerCards :: PlayerName -> Game -> Game
 excludeOtherPlayerCards playerName = excludePrivateCards $ Just playerName
 
-
 --  -- For spectators who aren't in game
 excludeAllPlayerCards :: Game -> Game
 excludeAllPlayerCards = excludePrivateCards Nothing
-
 
 -- Exclude player cards and Deck so spectators can't see private cards.
 --
@@ -37,7 +33,7 @@ excludeAllPlayerCards = excludePrivateCards Nothing
 -- will not be excluded.
 --
 -- So if a game update is going to be sent to a user then we pass in his playerName
--- so that information that is private to him is not excluded from the 
+-- so that information that is private to him is not excluded from the
 -- Game state (his pocket cards)
 --
 -- If everyone in the game is AllIn then their pocket cards should all be visible.
@@ -46,32 +42,32 @@ excludeAllPlayerCards = excludePrivateCards Nothing
 -- or during the final showdown stage of the game
 --
 -- If they are
--- then all the pocket cards held by players whose _playerState 
+-- then all the pocket cards held by players whose _playerState
 -- is set to In (active and) are public and therefore not removed.
 excludePrivateCards :: Maybe PlayerName -> Game -> Game
 excludePrivateCards maybePlayerName game =
   game & (players %~ (<$>) pocketCardsPrivacyModifier) . (deck .~ Deck [])
- where
-  showAllActivesCards        = canPubliciseActivesCards game
-  pocketCardsPrivacyModifier = maybe
-    (updatePocketCardsForSpectator showAllActivesCards)
-    (updatePocketCardsForPlayer showAllActivesCards)
-    maybePlayerName
-
+  where
+    showAllActivesCards = canPubliciseActivesCards game
+    pocketCardsPrivacyModifier =
+      maybe
+        (updatePocketCardsForSpectator showAllActivesCards)
+        (updatePocketCardsForPlayer showAllActivesCards)
+        maybePlayerName
 
 updatePocketCardsForSpectator :: Bool -> (Player -> Player)
 updatePocketCardsForSpectator showAllActivesCards
   | showAllActivesCards = \player@Player {..} ->
-    if _playerState == In then player else Player { _pockets = Nothing, .. }
-  | otherwise = \Player {..} -> Player { _pockets = Nothing, .. }
-
+    if _playerState == In then player else Player {_pockets = Nothing, ..}
+  | otherwise = \Player {..} -> Player {_pockets = Nothing, ..}
 
 updatePocketCardsForPlayer :: Bool -> PlayerName -> (Player -> Player)
 updatePocketCardsForPlayer showAllActivesCards playerName
   | showAllActivesCards = \player@Player {..} ->
     if (_playerState == In) || (_playerName == playerName)
       then player
-      else Player { _pockets = Nothing, .. }
-  | otherwise = \player@Player {..} -> if _playerName == playerName
-    then player
-    else Player { _pockets = Nothing, .. }
+      else Player {_pockets = Nothing, ..}
+  | otherwise = \player@Player {..} ->
+    if _playerName == playerName
+      then player
+      else Player {_pockets = Nothing, ..}

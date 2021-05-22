@@ -1,137 +1,146 @@
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE LambdaCase #-}
-
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 module Poker.Generators where
-    
-import           Control.Monad
 
+import Control.Lens
+  ( Field2 (_2),
+    FunctorWithIndex (imap),
+    (%~),
+    (.~),
+    (^.),
+  )
+import Control.Monad (Monad (return), replicateM)
+import Control.Monad.State (Monad (return), replicateM)
+import Data.Either ()
 import qualified Data.List as List
-import qualified Data.Text as Text
-
-
-
-import Data.Proxy
-import Data.Maybe
-
-import           Hedgehog
-import qualified Hedgehog.Gen as Gen
-import qualified Hedgehog.Range as Range
-
-import qualified Data.Vector as V
-
-import Debug.Trace
-
-import Prelude 
+import Data.Maybe (Maybe (..))
+import Data.Proxy ()
 import Data.Text (Text)
 import qualified Data.Text as T
-import Data.Either
-import Control.Monad.State
-import Data.Traversable
-import Control.Lens
-
-import Poker.ActionValidation
-import Poker.Game.Blinds
-import Poker.Game.Game
+import qualified Data.Text as Text
+import Data.Traversable (mapAccumR)
+import Data.Tuple (fst, swap)
+import qualified Data.Vector as V
+import Debug.Trace ()
+import GHC.Enum (Enum (fromEnum))
+import Hedgehog (Gen)
+import qualified Hedgehog.Gen as Gen
+import qualified Hedgehog.Range as Range
+import Poker.ActionValidation ()
+import Poker.Game.Blinds ()
+import Poker.Game.Game (getWinners, nextIPlayerToAct)
+import Poker.Game.Hands ()
 import Poker.Game.Utils
-import Poker.Poker
+  ( getActivePlayers,
+    getPlayersSatIn,
+    initialDeck,
+  )
+import Poker.Poker ()
 import Poker.Types
-import Poker.Game.Hands
-import GHC.Enum
-import Data.Tuple
+  ( Card (suit),
+    Deck (..),
+    Game (..),
+    Player (..),
+    PlayerName,
+    PlayerState (Folded, SatOut),
+    PocketCards (..),
+    Street (..),
+    Suit (Diamonds, Spades),
+    Winners (NoWinners),
+    bet,
+    playerName,
+    unDeck,
+  )
+import Prelude
 
 allPStates :: [PlayerState]
 allPStates = [SatOut ..]
 
-
 allPStreets :: [Street]
-allPStreets = [PreDeal ..] 
-
+allPStreets = [PreDeal ..]
 
 numBoardCards :: Street -> Int
-numBoardCards = 
-     \case
-       PreDeal  -> 0
-       PreFlop  -> 0
-       Flop     -> 3
-       Turn     -> 4
-       River    -> 5
-       Showdown -> 5
-       
+numBoardCards =
+  \case
+    PreDeal -> 0
+    PreFlop -> 0
+    Flop -> 3
+    Turn -> 4
+    River -> 5
+    Showdown -> 5
 
 genShuffledCards :: Int -> Gen [Card]
-genShuffledCards n = do 
-     cs <- Gen.shuffle $ unDeck initialDeck
-     return $ take n cs
-
+genShuffledCards n = do
+  cs <- Gen.shuffle $ unDeck initialDeck
+  return $ take n cs
 
 genShuffledDeck :: Gen Deck
-genShuffledDeck = do 
-    cs <- Gen.shuffle $ unDeck initialDeck 
-    return $ Deck cs
-
+genShuffledDeck = do
+  cs <- Gen.shuffle $ unDeck initialDeck
+  return $ Deck cs
 
 genSuit :: Gen Suit
 genSuit = Gen.enum Diamonds Spades
 
-
 genSameSuitCards :: Int -> Gen [Card]
 genSameSuitCards n = do
-     suit' <- genSuit
-     cs <- Gen.shuffle $ filter ((== suit') . suit) (unDeck initialDeck)
-     return $ take n cs
-
+  suit' <- genSuit
+  cs <- Gen.shuffle $ filter ((== suit') . suit) (unDeck initialDeck)
+  return $ take n cs
 
 genDealPockets :: [Card] -> Gen (Maybe PocketCards, [Card])
 genDealPockets cs = do
-     let ([c1, c2], remainingCs) = splitAt 2 cs
-     return (Just $ PocketCards c1 c2, remainingCs)
-
+  let ([c1, c2], remainingCs) = splitAt 2 cs
+  return (Just $ PocketCards c1 c2, remainingCs)
 
 genNoPockets :: [Card] -> Gen (Maybe PocketCards, [Card])
 genNoPockets cs = return (Nothing, cs)
 
-
 genPlayers :: Street -> Int -> [PlayerState] -> Int -> [Card] -> Gen ([Player], [Card])
 genPlayers street' requiredInPlayers possibleStates playerCount cs = do
-     ps <- replicateM playerCount $ do 
-          pState <- Gen.element possibleStates
-          genPlayer street' pState "player" Nothing
-     if (activesCount ps < requiredInPlayers) || street' `elem` actionStages && (satInCount ps) < 2
-          then Gen.discard 
-          else return $ swap $ dealPlayersGen ps cs
-  where 
-     actionStages = [PreFlop, Flop, Turn, River]
-     activesCount ps = length $ getActivePlayers ps
-     satInCount ps = length $ getPlayersSatIn ps 
-     
+  ps <- replicateM playerCount $ do
+    pState <- Gen.element possibleStates
+    genPlayer street' pState "player" Nothing
+  if activesCount ps < requiredInPlayers || street' `elem` actionStages && satInCount ps < 2
+    then Gen.discard
+    else return $ swap $ dealPlayersGen ps cs
+  where
+    actionStages = [PreFlop, Flop, Turn, River]
+    activesCount ps = length $ getActivePlayers ps
+    satInCount ps = length $ getPlayersSatIn ps
 
 dealPlayersGen :: [Player] -> [Card] -> ([Card], [Player])
-dealPlayersGen ps cs = _2 %~ nameByPos $ mapAccumR (\cs p ->
-     let (maybeDealtP, remainingCs') = dealPlayer cs p in 
-       (remainingCs', maybeDealtP)) cs ps
-   where 
-     newName pos = playerName .~ ("player" <> (T.pack $ show pos))
-     nameByPos ps = imap (\pos p -> newName pos p) ps
-     dealPlayer cs plyr@Player{..} 
-         | _playerState == SatOut = (plyr, cs)
-         | otherwise = (,) Player {_pockets = Just $ PocketCards c1 c2, .. } remainingCs'
-             where ([c1, c2], remainingCs') = splitAt 2 cs
+dealPlayersGen ps cs =
+  _2 %~ nameByPos $
+    mapAccumR
+      ( \cs p ->
+          let (maybeDealtP, remainingCs') = dealPlayer cs p
+           in (remainingCs', maybeDealtP)
+      )
+      cs
+      ps
+  where
+    newName pos = playerName .~ "player" <> (T.pack $ show pos)
+    nameByPos ps = imap newName ps
+    dealPlayer cs plyr@Player {..}
+      | _playerState == SatOut = (plyr, cs)
+      | otherwise = (,) Player {_pockets = Just $ PocketCards c1 c2, ..} remainingCs'
+      where
+        ([c1, c2], remainingCs') = splitAt 2 cs
 
-     
 genPlayer' :: Street -> [PlayerState] -> Int -> [Card] -> Gen (Player, [Card])
 genPlayer' street' possibleStates position cs = do
-     pState <- Gen.element possibleStates
-     let shouldDeal = pState /= SatOut || null cs
-     (pocketCs, remainingCs) <- if shouldDeal then genDealPockets cs else genNoPockets cs
-     p <- genPlayer street' pState pName pocketCs
-     return (p, remainingCs)
-     where 
-       pName = "player" <> (T.pack $ show position) 
-
+  pState <- Gen.element possibleStates
+  let shouldDeal = pState /= SatOut || null cs
+  (pocketCs, remainingCs) <- if shouldDeal then genDealPockets cs else genNoPockets cs
+  p <- genPlayer street' pState pName pocketCs
+  return (p, remainingCs)
+  where
+    pName = "player" <> T.pack (show position)
 
 -- if given Just cards then will deal player (as long as not sat out) and return the remaining cards
 --
@@ -144,24 +153,21 @@ genPlayer street' _playerState _playerName _pockets = do
   _bet <- if street' == PreDeal then Gen.constant 0 else Gen.int $ Range.linear 0 _committed
   _actedThisTurn <- if _playerState == SatOut then Gen.constant False else Gen.bool
   return Player {..}
-  where minChips = if _playerState == Folded then 1 else 0 
-                   
-
+  where
+    minChips = if _playerState == Folded then 1 else 0
 
 genGame :: [Street] -> [PlayerState] -> Gen Game
 genGame possibleStreets pStates = do
-    _street <- Gen.element possibleStreets
-    let d@(Deck cs) = initialDeck
-    let 
-       boardCount = numBoardCards _street
-       (boardCards, remainingCs) = splitAt boardCount cs
-    _smallBlind <- Gen.int $ Range.linear 1 100
-    _maxPlayers <- Gen.int $ Range.linear 2 9
-    playerCount <- Gen.int $ Range.linear 2 _maxPlayers
-    let requiredInPlyrs = if _street == Showdown then 2 else 0
-    (_players, remainingCs') <- genPlayers _street requiredInPlyrs pStates playerCount remainingCs
-    let
-      _waitlist = []
+  _street <- Gen.element possibleStreets
+  let d@(Deck cs) = initialDeck
+  let boardCount = numBoardCards _street
+      (boardCards, remainingCs) = splitAt boardCount cs
+  _smallBlind <- Gen.int $ Range.linear 1 100
+  _maxPlayers <- Gen.int $ Range.linear 2 9
+  playerCount <- Gen.int $ Range.linear 2 _maxPlayers
+  let requiredInPlyrs = if _street == Showdown then 2 else 0
+  (_players, remainingCs') <- genPlayers _street requiredInPlyrs pStates playerCount remainingCs
+  let _waitlist = []
       _bigBlind = _smallBlind * 2
       _maxBuyInChips = _bigBlind * 200
       _minBuyInChips = _bigBlind * 100
@@ -171,11 +177,10 @@ genGame possibleStreets pStates = do
       _maxBet = maximum betsThisRound
       betSum = sum betsThisRound
       playerCount = length _players
-      _winners = if _street == Showdown then getWinners Game{..} else NoWinners
-    _pot <- Gen.int $ Range.linear betSum (betSum * fromEnum _street)
-    _dealer <- Gen.int $ Range.linear 0 (playerCount - 1)
-    _currentPosToAct' <- Gen.int $ Range.linear 0 (playerCount - 1)
-    let
-      g'' = Game {..}
+      _winners = if _street == Showdown then getWinners Game {..} else NoWinners
+  _pot <- Gen.int $ Range.linear betSum (betSum * fromEnum _street)
+  _dealer <- Gen.int $ Range.linear 0 (playerCount - 1)
+  _currentPosToAct' <- Gen.int $ Range.linear 0 (playerCount - 1)
+  let g'' = Game {..}
       _currentPosToAct = fst <$> nextIPlayerToAct g'' (Just _dealer)
-    return Game{..}
+  return Game {..}

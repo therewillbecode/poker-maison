@@ -1,26 +1,20 @@
-{-# LANGUAGE DeriveGeneric #-}
-{-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE DeriveAnyClass #-}
+{-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE TemplateHaskell #-}
 
 module Poker.Types where
 
-import           Control.Lens
-import           Control.Monad.State
-import           Data.Aeson
-import           Data.Aeson.Types
-import           Data.Function
-import           Data.Monoid
-import           Data.Text
-import           Database.Persist.TH
-import qualified Data.Text.Lazy                as LT
-import           GHC.Generics
+import Control.Lens (makeLenses)
+import Data.Aeson (FromJSON, ToJSON)
+import Data.Function (on)
+import Data.Text (Text)
+import qualified Data.Text.Lazy as LT
+import Database.Persist.TH (derivePersistField)
+import GHC.Generics (Generic)
 
-import           Text.Pretty.Simple
-
-------------------------------------------------------------------------------
 data Rank
   = Two
   | Three
@@ -39,19 +33,19 @@ data Rank
 
 instance Show Rank where
   show x = case x of
-    Two   -> "2"
+    Two -> "2"
     Three -> "3"
-    Four  -> "4"
-    Five  -> "5"
-    Six   -> "6"
+    Four -> "4"
+    Five -> "5"
+    Six -> "6"
     Seven -> "7"
     Eight -> "8"
-    Nine  -> "9"
-    Ten   -> "T"
-    Jack  -> "J"
+    Nine -> "9"
+    Ten -> "T"
+    Jack -> "J"
     Queen -> "Q"
-    King  -> "K"
-    Ace   -> "A"
+    King -> "K"
+    Ace -> "A"
 
 data Suit
   = Clubs
@@ -62,15 +56,16 @@ data Suit
 
 instance Show Suit where
   show x = case x of
-    Clubs    -> "♧ "
+    Clubs -> "♧ "
     Diamonds -> "♢ "
-    Hearts   -> "♡ "
-    Spades   -> "♤ "
+    Hearts -> "♡ "
+    Spades -> "♤ "
 
 data Card = Card
-  { rank :: Rank
-  , suit :: Suit
-  } deriving (Eq, Read, Generic, ToJSON, FromJSON)
+  { rank :: Rank,
+    suit :: Suit
+  }
+  deriving (Eq, Read, Generic, ToJSON, FromJSON)
 
 instance Ord Card where
   compare = compare `on` rank
@@ -92,7 +87,6 @@ data HandRank
 
 type Bet = Int
 
--- TODO - replace SatOut with SatOut
 data PlayerState
   = SatOut -- SatOut denotes a player that will not be dealt cards unless they send a postblinds action to the server
   | Folded
@@ -109,36 +103,36 @@ data Street
   deriving (Eq, Ord, Show, Read, Bounded, Enum, Generic, ToJSON, FromJSON)
 
 data Player = Player
-  { _pockets :: Maybe PocketCards
-  , _chips :: Int
-  , _bet :: Bet
-  , _playerState :: PlayerState
-  , _playerName :: Text
-  , _possibleActions :: [Action]
-  , _committed :: Bet
-  , _actedThisTurn :: Bool
-  } deriving (Show, Eq, Read, Ord, Generic, ToJSON, FromJSON)
-
-data PocketCards =
-  PocketCards Card Card
+  { _pockets :: Maybe PocketCards,
+    _chips :: Int,
+    _bet :: Bet,
+    _playerState :: PlayerState,
+    _playerName :: Text,
+    _possibleActions :: [Action],
+    _committed :: Bet,
+    _actedThisTurn :: Bool
+  }
   deriving (Show, Eq, Read, Ord, Generic, ToJSON, FromJSON)
 
+data PocketCards
+  = PocketCards Card Card
+  deriving (Show, Eq, Read, Ord, Generic, ToJSON, FromJSON)
 
 unPocketCards :: PocketCards -> [Card]
 unPocketCards (PocketCards c1 c2) = [c1, c2]
 
 -- Highest ranking hand for a given Player that is in the game
 -- during the Showdown stage of the game (last stage)
-newtype PlayerShowdownHand =
-  PlayerShowdownHand [Card]
+newtype PlayerShowdownHand
+  = PlayerShowdownHand [Card]
   deriving (Show, Eq, Read, Ord, Generic, ToJSON, FromJSON)
 
 unPlayerShowdownHand :: PlayerShowdownHand -> [Card]
 unPlayerShowdownHand (PlayerShowdownHand cards) = cards
 
 -- Folded To Signifies a a single player pot where everyone has
--- folded to them in this case the hand ranking is irrelevant 
--- and the winner takes all. Therefore the winner has the choice of showing 
+-- folded to them in this case the hand ranking is irrelevant
+-- and the winner takes all. Therefore the winner has the choice of showing
 -- or mucking (hiding) their cards as they are the only player in the pot.
 --
 -- Whereas in a MultiPlayer showdown all players must show their cards
@@ -149,33 +143,34 @@ data Winners
   | NoWinners -- todo - remove this and wrap whole type in a Maybe
   deriving (Show, Eq, Read, Ord, Generic, ToJSON, FromJSON)
 
-newtype Deck =
-  Deck [Card]
+newtype Deck
+  = Deck [Card]
   deriving (Show, Eq, Read, Ord, Generic, ToJSON, FromJSON)
 
 unDeck :: Deck -> [Card]
 unDeck (Deck cards) = cards
 
 data Game = Game
-  { _players :: [Player]
-  , _minBuyInChips :: Int
-  , _maxBuyInChips :: Int
-  , _maxPlayers :: Int
-  , _board :: [Card]
-  , _winners :: Winners
-  , _waitlist :: [PlayerName]
-  , _deck :: Deck
-  , _smallBlind :: Int
-  , _bigBlind :: Int
-  , _street :: Street
-  , _pot :: Int
-  , _maxBet :: Bet
-  , _dealer :: Int
-  , _currentPosToAct :: Maybe Int -- If Nothing and not PreDeal stage of game then this signifies that 
-    -- no  player can act (i.e everyone all in) or 
+  { _players :: [Player],
+    _minBuyInChips :: Int,
+    _maxBuyInChips :: Int,
+    _maxPlayers :: Int,
+    _board :: [Card],
+    _winners :: Winners,
+    _waitlist :: [PlayerName],
+    _deck :: Deck,
+    _smallBlind :: Int,
+    _bigBlind :: Int,
+    _street :: Street,
+    _pot :: Int,
+    _maxBet :: Bet,
+    _dealer :: Int,
+    _currentPosToAct :: Maybe Int -- If Nothing and not PreDeal stage of game then this signifies that
+    -- no  player can act (i.e everyone all in) or
     -- if during PreDeal (blinds stage) any player can act first in order to get the game started
     -- TODO refactor this logic into ADT such as  Nobody | Anyone | Someone PlayerName PlayerPos
-  } deriving (Eq, Read, Ord, Generic, ToJSON, FromJSON)
+  }
+  deriving (Eq, Read, Ord, Generic, ToJSON, FromJSON)
 
 instance Show Game where
   show Game {..} =
@@ -212,16 +207,16 @@ data Blind
   | NoBlind
   deriving (Show, Eq, Read, Ord, Generic, ToJSON, FromJSON)
 
-data PlayerAction = PlayerAction {
-  name :: PlayerName ,
-  action :: Action
-} deriving (Show, Eq, Read, Ord, Generic, ToJSON, FromJSON)
+data PlayerAction = PlayerAction
+  { name :: PlayerName,
+    action :: Action
+  }
+  deriving (Show, Eq, Read, Ord, Generic, ToJSON, FromJSON)
 
-
--- If you can check, that is you aren't facing an amount you have to call, 
+-- If you can check, that is you aren't facing an amount you have to call,
 -- then when you put in chips it is called a bet. If you have to put in
--- some amount of chips to continue with the hand, and you want to 
--- increase the pot, it's called a raise. If it is confusing, just remember 
+-- some amount of chips to continue with the hand, and you want to
+-- increase the pot, it's called a raise. If it is confusing, just remember
 -- this old poker adage: "You can't raise yourself."
 --
 -- Mucking hands refers to a player choosing not to
@@ -252,14 +247,15 @@ data GameErr
   | NotAtTable PlayerName
   | CannotSitAtFullTable PlayerName
   | AlreadyOnWaitlist PlayerName
-  | InvalidMove PlayerName
-                InvalidMoveErr
+  | InvalidMove
+      PlayerName
+      InvalidMoveErr
   deriving (Show, Eq, Read, Ord, Generic, ToJSON, FromJSON)
 
--- ToDO -- ONLY ONE ERR MSG FOR EACH POSSIBLE ACTION 
+-- ToDO -- ONLY ONE ERR MSG FOR EACH POSSIBLE ACTION
 --
 -- additional text field for more detailed info
--- 
+--
 -- i.e cannotBet "Cannot Bet Should Raise Instead - bets can only be made if there have been zero bets this street"
 data InvalidMoveErr
   = BlindNotRequired
@@ -289,8 +285,8 @@ data InvalidMoveErr
   | CannotSitOutOutsidePreDeal
   deriving (Show, Eq, Read, Ord, Generic, ToJSON, FromJSON)
 
-newtype CurrentPlayerToActErr =
-  CurrentPlayerToActErr PlayerName
+newtype CurrentPlayerToActErr
+  = CurrentPlayerToActErr PlayerName
   deriving (Show, Eq, Read, Ord, Generic, ToJSON, FromJSON)
 
 makeLenses ''Player
@@ -304,7 +300,7 @@ makeLenses ''Winners
 -- Due to the GHC Stage Restriction, the call to the Template Haskell function derivePersistField must be
 -- in a separate module than where the generated code is used.
 -- Perform marshaling using the Show and Read
--- instances of the datatype to string field in db 
+-- instances of the datatype to string field in db
 derivePersistField "Player"
 
 derivePersistField "Winners"

@@ -1,23 +1,39 @@
-{-# LANGUAGE TemplateHaskell #-}
-{-# LANGUAGE QuasiQuotes #-}
-{-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE DerivingStrategies #-}
+{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE RecordWildCards #-}
-{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE QuasiQuotes #-}
+{-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE UndecidableInstances #-}
 
 module Schema where
 
-import           Control.Monad
-import           Data.Aeson
-import           Data.Aeson.Types
-import           Data.Text                      ( Text )
-import           Data.Time.Clock
-import           Database.Persist.TH
-
-import           Poker.Types
+import Control.Monad ()
+import Data.Aeson ()
+import Data.Aeson.Types ()
+import Data.Text (Text)
+import Data.Time.Clock (UTCTime)
+import Database.Persist.TH
+  ( mkMigrate,
+    mkPersist,
+    persistLowerCase,
+    share,
+    sqlSettings,
+  )
+import Poker.Types
+  ( Bet,
+    Card,
+    Player,
+    PlayerName,
+    Street,
+    Winners,
+  )
 
 share
   [mkPersist sqlSettings, mkMigrate "migrateAll"]
