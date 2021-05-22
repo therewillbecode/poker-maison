@@ -7,7 +7,6 @@ import Data.List ()
 import Data.List.Lens ()
 import Data.Text (Text)
 import qualified Data.Text as T
-import HaskellWorks.Hspec.Hedgehog (requireProperty)
 import Hedgehog (forAll, (===))
 import qualified Hedgehog.Gen as Gen
 import qualified Hedgehog.Range as Range
@@ -23,6 +22,15 @@ import Poker.Types
     street,
   )
 import Test.Hspec (describe, it, shouldBe)
+import Test.Hspec.Hedgehog
+  ( PropertyT,
+    diff,
+    forAll,
+    hedgehog,
+    modifyMaxDiscardRatio,
+    (/==),
+    (===),
+  )
 
 initialGameState' :: Game
 initialGameState' = initialGameState initialDeck
@@ -122,6 +130,6 @@ spec = do
       modInc 1 6 7 `shouldBe` 7
 
     it "result should always be greater than zero" $ do
-      requireProperty $ do
+      hedgehog $ do
         i <- forAll $ Gen.int $ Range.linear 0 9
         (modInc 1 i 9 >= 0) === True

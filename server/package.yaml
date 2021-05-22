@@ -109,4 +109,3 @@ tests:
       - hspec
       - hedgehog
       - hspec-hedgehog
-      - hw-hspec-hedgehog

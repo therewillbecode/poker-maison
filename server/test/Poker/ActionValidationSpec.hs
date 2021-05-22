@@ -7,7 +7,6 @@ import Control.Lens (element, (%~), (&), (.~), (?~))
 import Data.Either (isLeft, isRight)
 import Data.Text (Text)
 import qualified Data.Text as T
-import HaskellWorks.Hspec.Hedgehog (require)
 import Hedgehog (Property, forAll, property, withDiscards, (===))
 import qualified Hedgehog.Gen as Gen
 import qualified Hedgehog.Range as Range
@@ -79,6 +78,15 @@ import Poker.Types
     winners,
   )
 import Test.Hspec (describe, it, shouldBe)
+import Test.Hspec.Hedgehog
+  ( PropertyT,
+    diff,
+    forAll,
+    hedgehog,
+    modifyMaxDiscardRatio,
+    (/==),
+    (===),
+  )
 
 initialGameState' :: Game
 initialGameState' = initialGameState initialDeck
@@ -286,39 +294,6 @@ turnGameThreePlyrs =
             }
         ]
     }
-
-prop_plyrShouldntBeAbleToPostBlindsWhenNoChips :: Property
-prop_plyrShouldntBeAbleToPostBlindsWhenNoChips = withDiscards 225 . property $ do
-  g <- forAll $ genGame allPStreets allPStates
-  blind' <- forAll $ Gen.element [Small, Big]
-  let g' = g & players . element 0 %~ chips .~ 0
-      action' = PostBlind blind'
-      pName = "player0"
-  isLeft (validateAction g' pName action') === True
-  where
-    actionStages = [PreDeal]
-
-prop_plyrShouldntBeAbleToPostBlindsOutsidePreDeal :: Property
-prop_plyrShouldntBeAbleToPostBlindsOutsidePreDeal = withDiscards 225 . property $ do
-  g <- forAll $ genGame stages allPStates
-  blind' <- forAll $ Gen.element [Small, Big]
-  let action' = PostBlind blind'
-      pName = "player1"
-  isLeft (validateAction g pName action') === True
-  where
-    stages = [PreFlop, Flop, Turn, River, Showdown]
-
-prop_plyrWithChipsShouldAlwaysBeableToFoldInTurn :: Property
-prop_plyrWithChipsShouldAlwaysBeableToFoldInTurn = withDiscards 225 . property $ do
-  g <- forAll $ genGame actionStages [In]
-  let action' = Fold
-      pName = "player0"
-      inTurn = isRight $ isPlayerActingOutOfTurn g pName
-      allIn = (== 0) $ _chips $ head $ _players g
-      canFold = isRight $ validateAction g pName action'
-  canFold === (inTurn && not allIn)
-  where
-    actionStages = [PreFlop, Flop, Turn, River]
 
 spec = do
   describe "Player Acting in Turn Validation" $ do
@@ -937,9 +912,30 @@ spec = do
         let pName = "player1"
         isLeft (validateAction preDealHeadsUpFixture pName action') `shouldBe` True
 
-      it "Players can't post a blind when they have no chips" $ require prop_plyrShouldntBeAbleToPostBlindsWhenNoChips
+      it "Players can't post a blind when they have no chips" $
+        hedgehog $ do
+          g <- forAll $ genGame [PreDeal] allPStates
+          blind' <- forAll $ Gen.element [Small, Big]
+          let g' = g & players . element 0 %~ chips .~ 0
+              action' = PostBlind blind'
+              pName = "player0"
+          isLeft (validateAction g' pName action') === True
 
-      it "Players shouldn't be able to post blinds outside PreDeal" $ require prop_plyrShouldntBeAbleToPostBlindsOutsidePreDeal
+    --    it "Players shouldn't be able to post blinds outside PreDeal" $
+    --      hedgehog $ do
+    --        g <- forAll $ genGame [PreFlop] [In, SatOut]
+    --        blind' <- forAll $ Gen.element [Small, Big]
+    --        let action' = PostBlind blind'
+    --            pName = "player1"
+    --        isLeft (validateAction g pName action') === True
 
     describe "fold" $
-      it "should always be able to fold when in turn" $ require prop_plyrWithChipsShouldAlwaysBeableToFoldInTurn
+      it "should always be able to fold when in turn" $
+        hedgehog $ do
+          g <- forAll $ genGame [PreFlop, Flop, Turn, River] [In]
+          let action' = Fold
+              pName = "player0"
+              inTurn = isRight $ isPlayerActingOutOfTurn g pName
+              allIn = (== 0) $ _chips $ head $ _players g
+              canFold = isRight $ validateAction g pName action'
+          canFold === (inTurn && not allIn)
