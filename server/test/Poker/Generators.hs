@@ -30,16 +30,12 @@ import GHC.Enum (Enum (fromEnum))
 import Hedgehog (Gen)
 import qualified Hedgehog.Gen as Gen
 import qualified Hedgehog.Range as Range
-import Poker.ActionValidation ()
-import Poker.Game.Blinds ()
 import Poker.Game.Game (getWinners, nextIPlayerToAct)
-import Poker.Game.Hands ()
 import Poker.Game.Utils
   ( getActivePlayers,
     getPlayersSatIn,
     initialDeck,
   )
-import Poker.Poker ()
 import Poker.Types
   ( Card (suit),
     Deck (..),
@@ -124,7 +120,7 @@ dealPlayersGen ps cs =
       cs
       ps
   where
-    newName pos = playerName .~ "player" <> (T.pack $ show pos)
+    newName pos = playerName .~ "player" <> T.pack (show pos)
     nameByPos ps = imap newName ps
     dealPlayer cs plyr@Player {..}
       | _playerState == SatOut = (plyr, cs)
@@ -155,6 +151,7 @@ genPlayer street' _playerState _playerName _pockets = do
   return Player {..}
   where
     minChips = if _playerState == Folded then 1 else 0
+    _possibleActions = []
 
 genGame :: [Street] -> [PlayerState] -> Gen Game
 genGame possibleStreets pStates = do

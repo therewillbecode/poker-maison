@@ -4,10 +4,6 @@
 module Poker.BlindSpec where
 
 import Control.Lens ((.~))
-import Data.Aeson ()
-import Data.Either ()
-import Data.List ()
-import Data.List.Lens ()
 import Data.Text (Text)
 import qualified Data.Text as T
 import HaskellWorks.Hspec.Hedgehog (require)
@@ -20,8 +16,6 @@ import Hedgehog
   )
 import qualified Hedgehog.Gen as Gen
 import qualified Hedgehog.Range as Range
-import Poker.ActionValidation ()
-import Poker.Game.Actions ()
 import Poker.Game.Blinds
   ( blindRequiredByPlayer,
     getRequiredBlinds,
@@ -59,7 +53,8 @@ twoPlayerGame =
               _playerState = In,
               _playerName = "player1",
               _committed = 50,
-              _actedThisTurn = False
+              _actedThisTurn = False,
+              _possibleActions = []
             },
           Player
             { _pockets = Nothing,
@@ -68,7 +63,8 @@ twoPlayerGame =
               _playerState = SatOut,
               _playerName = "player2",
               _committed = 0,
-              _actedThisTurn = False
+              _actedThisTurn = False,
+              _possibleActions = []
             }
         ],
       _maxPlayers = 5,
@@ -98,7 +94,8 @@ twoPlayerGameAllBlindsPosted =
               _playerState = In,
               _playerName = "player1",
               _committed = 25,
-              _actedThisTurn = True
+              _actedThisTurn = True,
+              _possibleActions = []
             },
           Player
             { _pockets = Nothing,
@@ -107,7 +104,8 @@ twoPlayerGameAllBlindsPosted =
               _playerState = In,
               _playerName = "player2",
               _committed = 50,
-              _actedThisTurn = True
+              _actedThisTurn = True,
+              _possibleActions = []
             }
         ],
       _maxPlayers = 5,
@@ -137,7 +135,8 @@ threePlayerGame =
               _playerState = SatOut,
               _playerName = "player1",
               _committed = 0,
-              _actedThisTurn = False
+              _actedThisTurn = False,
+              _possibleActions = []
             },
           Player
             { _pockets = Nothing,
@@ -146,7 +145,8 @@ threePlayerGame =
               _playerState = SatOut,
               _playerName = "player2",
               _committed = 0,
-              _actedThisTurn = False
+              _actedThisTurn = False,
+              _possibleActions = []
             },
           Player
             { _pockets = Nothing,
@@ -155,7 +155,8 @@ threePlayerGame =
               _playerState = SatOut,
               _playerName = "player3",
               _committed = 0,
-              _actedThisTurn = False
+              _actedThisTurn = False,
+              _possibleActions = []
             }
         ],
       _maxPlayers = 5,
@@ -185,7 +186,8 @@ threePlayerGameAllBlindsPosted =
               _playerState = SatOut,
               _playerName = "player1",
               _committed = 0,
-              _actedThisTurn = False
+              _actedThisTurn = False,
+              _possibleActions = []
             },
           Player
             { _pockets = Nothing,
@@ -194,7 +196,8 @@ threePlayerGameAllBlindsPosted =
               _playerState = In,
               _playerName = "player2",
               _committed = 25,
-              _actedThisTurn = False
+              _actedThisTurn = False,
+              _possibleActions = []
             },
           Player
             { _pockets = Nothing,
@@ -203,7 +206,8 @@ threePlayerGameAllBlindsPosted =
               _playerState = In,
               _playerName = "player3",
               _committed = 50,
-              _actedThisTurn = False
+              _actedThisTurn = False,
+              _possibleActions = []
             }
         ],
       _maxPlayers = 5,

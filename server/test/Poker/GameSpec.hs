@@ -5,18 +5,10 @@
 module Poker.GameSpec where
 
 import Control.Lens (element, (%~), (&), (.~), (?~), (^.))
-import Control.Monad ()
-import Data.Aeson ()
 import qualified Data.ByteString.Lazy.Char8 as C
-import Data.Either ()
-import Data.List ()
-import Data.List.Lens ()
-import Data.List.Split ()
 import Data.Maybe (fromMaybe, isJust, isNothing)
 import Data.Text (Text)
 import qualified Data.Text as T
-import Debug.Trace ()
-import GHC.Generics ()
 import HaskellWorks.Hspec.Hedgehog (require)
 import Hedgehog
   ( Property,
@@ -28,18 +20,63 @@ import Hedgehog
   )
 import qualified Hedgehog.Gen as Gen
 import qualified Hedgehog.Range as Range
-import Poker.ActionValidation
-import Poker.Game.Blinds
 import Poker.Game.Game
-import Poker.Game.Utils
+  ( allButOneAllIn,
+    allButOneFolded,
+    awaitingPlayerAction,
+    dealToPlayers,
+    doesPlayerHaveToAct,
+    everyoneAllIn,
+    getHandRankings,
+    getNextHand,
+    haveAllPlayersActed,
+    nextPosToAct,
+    progressToFlop,
+    progressToPreFlop,
+    progressToRiver,
+    progressToShowdown,
+    progressToTurn,
+  )
+import Poker.Game.Utils (getActivePlayers, initialDeck)
 import Poker.Generators
-import Poker.Poker
+  ( allPStates,
+    allPStreets,
+    genGame,
+    genPlayer',
+    genPlayers,
+  )
+import Poker.Poker (initialGameState)
 import Poker.Types
-import System.IO.Unsafe
-import Test.Hspec
+  ( Card (Card, rank, suit),
+    Deck (Deck),
+    Game (..),
+    Player (..),
+    PlayerState (Folded, In, SatOut),
+    PocketCards (PocketCards),
+    Rank (Four, King, Three),
+    Street (Flop, PreDeal, PreFlop, River, Showdown, Turn),
+    Suit (Clubs, Diamonds, Hearts, Spades),
+    Winners (NoWinners),
+    actedThisTurn,
+    bet,
+    chips,
+    committed,
+    currentPosToAct,
+    dealer,
+    deck,
+    maxBet,
+    playerState,
+    players,
+    pot,
+    smallBlind,
+    street,
+  )
+import Test.Hspec (describe, it, shouldBe)
 
+initialGameState' :: Game
 initialGameState' = initialGameState initialDeck
 
+player1 :: Player
 player1 =
   Player
     { _pockets =
@@ -52,9 +89,11 @@ player1 =
       _playerState = In,
       _playerName = "player1",
       _committed = 50,
-      _actedThisTurn = True
+      _actedThisTurn = True,
+      _possibleActions = []
     }
 
+player2 :: Player
 player2 =
   Player
     { _pockets =
@@ -67,9 +106,11 @@ player2 =
       _playerState = In,
       _playerName = "player2",
       _committed = 50,
-      _actedThisTurn = False
+      _actedThisTurn = False,
+      _possibleActions = []
     }
 
+player3 :: Player
 player3 =
   Player
     { _pockets = Nothing,
@@ -78,9 +119,11 @@ player3 =
       _playerState = In,
       _playerName = "player3",
       _committed = 50,
-      _actedThisTurn = False
+      _actedThisTurn = False,
+      _possibleActions = []
     }
 
+player4 :: Player
 player4 =
   Player
     { _pockets = Nothing,
@@ -89,9 +132,11 @@ player4 =
       _playerState = SatOut,
       _playerName = "player4",
       _committed = 0,
-      _actedThisTurn = False
+      _actedThisTurn = False,
+      _possibleActions = []
     }
 
+player5 :: Player
 player5 =
   Player
     { _pockets =
@@ -104,9 +149,11 @@ player5 =
       _playerState = In,
       _playerName = "player1",
       _committed = 50,
-      _actedThisTurn = True
+      _actedThisTurn = True,
+      _possibleActions = []
     }
 
+player6 :: Player
 player6 =
   Player
     { _pockets = Nothing,
@@ -115,11 +162,14 @@ player6 =
       _playerState = SatOut,
       _playerName = "player6",
       _committed = 0,
-      _actedThisTurn = False
+      _actedThisTurn = False,
+      _possibleActions = []
     }
 
+initPlayers :: [Player]
 initPlayers = [player1, player2, player3]
 
+turnGameThreePlyrs :: Game
 turnGameThreePlyrs =
   Game
     { _dealer = 2,
@@ -144,7 +194,8 @@ turnGameThreePlyrs =
               _playerState = In,
               _playerName = "player0",
               _committed = 50,
-              _actedThisTurn = False
+              _actedThisTurn = False,
+              _possibleActions = []
             },
           Player
             { _pockets = Nothing,
@@ -153,7 +204,8 @@ turnGameThreePlyrs =
               _playerState = In,
               _playerName = "player1",
               _committed = 250,
-              _actedThisTurn = False
+              _actedThisTurn = False,
+              _possibleActions = []
             },
           Player
             { _pockets = Nothing,
@@ -162,7 +214,8 @@ turnGameThreePlyrs =
               _playerState = In,
               _playerName = "player2",
               _committed = 250,
-              _actedThisTurn = False
+              _actedThisTurn = False,
+              _possibleActions = []
             }
         ]
     }
@@ -313,6 +366,7 @@ spec = do
             $ initialGameState'
 
     let preFlopGame = progressToPreFlop preDealGame
+
     it "should update street to PreFlop" $ preFlopGame ^. street `shouldBe` PreFlop
 
     it "should not reset any player bet" $ do
@@ -387,6 +441,7 @@ spec = do
             . (players .~ [(chips .~ 1000) player5, (chips .~ 1000) player2])
             $ initialGameState'
     let showdownGame = progressToShowdown riverGame
+
     it "should update street to Turn" $ showdownGame ^. street `shouldBe` Showdown
 
     it "should award pot chips to winner of hand" $ do
@@ -595,6 +650,7 @@ spec = do
       doesPlayerHaveToAct (_playerName player5) game `shouldBe` False
 
       doesPlayerHaveToAct "player0" turnGameThreePlyrs `shouldBe` True
+
     it "should return False for non-active players" $ do
       let game =
             (street .~ Flop) . (dealer .~ 0)
@@ -635,6 +691,7 @@ spec = do
                            ]
                     )
                   $ initialGameState'
+
           it "No player should have to act first" $ do
             doesPlayerHaveToAct (_playerName player1) game' `shouldBe` False
             doesPlayerHaveToAct (_playerName player2) game' `shouldBe` False
@@ -657,6 +714,7 @@ spec = do
                            ]
                     )
                   $ initialGameState'
+
           it "No player should have to act first" $ do
             doesPlayerHaveToAct (_playerName player1) game' `shouldBe` False
             doesPlayerHaveToAct (_playerName player2) game' `shouldBe` False
@@ -686,6 +744,7 @@ spec = do
             it "Player1 should not have to act" $
               doesPlayerHaveToAct (_playerName player1) game'
                 `shouldBe` False
+
             it "Player2 should not have to act" $
               doesPlayerHaveToAct (_playerName player2) game'
                 `shouldBe` False
@@ -710,9 +769,11 @@ spec = do
                            ]
                     )
                   $ initialGameState'
+
           it "Player1 should not have to act" $
             doesPlayerHaveToAct (_playerName player1) game'
               `shouldBe` False
+
           it "Player2 should have to act" $
             doesPlayerHaveToAct (_playerName player2) game'
               `shouldBe` True
@@ -773,9 +834,11 @@ spec = do
                              ]
                       )
                     $ initialGameState'
+
             it "Player1 should not have to act" $
               doesPlayerHaveToAct (_playerName player1) game'
                 `shouldBe` False
+
             it "Player2 should have to act" $
               doesPlayerHaveToAct (_playerName player2) game'
                 `shouldBe` True
@@ -875,7 +938,8 @@ spec = do
               _playerState = In,
               _playerName = "player1",
               _committed = 100,
-              _actedThisTurn = True
+              _actedThisTurn = True,
+              _possibleActions = []
             }
 
         player2 =
@@ -886,7 +950,8 @@ spec = do
               _playerState = Folded,
               _playerName = "player2",
               _committed = 50,
-              _actedThisTurn = False
+              _actedThisTurn = False,
+              _possibleActions = []
             }
 
         player3 =
@@ -897,7 +962,8 @@ spec = do
               _playerState = In,
               _playerName = "player3",
               _committed = 50,
-              _actedThisTurn = False
+              _actedThisTurn = False,
+              _possibleActions = []
             }
 
         player4 =
@@ -908,7 +974,8 @@ spec = do
               _playerState = In,
               _playerName = "player3",
               _committed = 0,
-              _actedThisTurn = False
+              _actedThisTurn = False,
+              _possibleActions = []
             }
 
         player5 =
@@ -919,7 +986,8 @@ spec = do
               _playerState = In,
               _playerName = "player5",
               _committed = 4000,
-              _actedThisTurn = True
+              _actedThisTurn = True,
+              _possibleActions = []
             }
 
     it "nextPosToAct is always less than player count" $ require prop_nextPosToActLTPlayerCount
@@ -966,7 +1034,8 @@ spec = do
                         _playerState = In,
                         _playerName = "player0",
                         _committed = 50,
-                        _actedThisTurn = True
+                        _actedThisTurn = True,
+                        _possibleActions = []
                       },
                     Player
                       { _pockets = Nothing,
@@ -975,7 +1044,8 @@ spec = do
                         _playerState = In,
                         _playerName = "player1",
                         _committed = 50,
-                        _actedThisTurn = True
+                        _actedThisTurn = True,
+                        _possibleActions = []
                       },
                     Player
                       { _pockets = Nothing,
@@ -984,7 +1054,8 @@ spec = do
                         _playerState = Folded,
                         _playerName = "player2",
                         _committed = 0,
-                        _actedThisTurn = True
+                        _actedThisTurn = True,
+                        _possibleActions = []
                       }
                   ]
               }

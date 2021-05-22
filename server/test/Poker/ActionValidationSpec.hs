@@ -4,13 +4,9 @@
 module Poker.ActionValidationSpec where
 
 import Control.Lens (element, (%~), (&), (.~), (?~))
-import Control.Monad.State ()
 import Data.Either (isLeft, isRight)
-import Data.List ()
-import Data.List.Lens ()
 import Data.Text (Text)
 import qualified Data.Text as T
-import GHC.Generics ()
 import HaskellWorks.Hspec.Hedgehog (require)
 import Hedgehog (Property, forAll, property, withDiscards, (===))
 import qualified Hedgehog.Gen as Gen
@@ -61,7 +57,8 @@ import Poker.Types
         _committed,
         _playerName,
         _playerState,
-        _pockets
+        _pockets,
+        _possibleActions
       ),
     PlayerShowdownHand (PlayerShowdownHand),
     PlayerState (Folded, In, SatOut),
@@ -95,7 +92,8 @@ player1 =
       _playerState = In,
       _playerName = "player1",
       _committed = 250,
-      _actedThisTurn = False
+      _actedThisTurn = False,
+      _possibleActions = []
     }
 
 player2 :: Player
@@ -107,7 +105,8 @@ player2 =
       _playerState = Folded,
       _playerName = "player2",
       _committed = 50,
-      _actedThisTurn = False
+      _actedThisTurn = False,
+      _possibleActions = []
     }
 
 player3 :: Player
@@ -119,7 +118,8 @@ player3 =
       _playerState = In,
       _playerName = "player3",
       _committed = 50,
-      _actedThisTurn = False
+      _actedThisTurn = False,
+      _possibleActions = []
     }
 
 player4 :: Player
@@ -131,7 +131,8 @@ player4 =
       _playerState = SatOut,
       _playerName = "player4",
       _committed = 0,
-      _actedThisTurn = False
+      _actedThisTurn = False,
+      _possibleActions = []
     }
 
 player5 :: Player
@@ -143,7 +144,8 @@ player5 =
       _playerState = In,
       _playerName = "player5",
       _committed = 50,
-      _actedThisTurn = False
+      _actedThisTurn = False,
+      _possibleActions = []
     }
 
 playerFixtures :: [Player]
@@ -177,7 +179,8 @@ callAllInHeadsUpFixture =
               _playerState = In,
               _playerName = "player0",
               _committed = 50,
-              _actedThisTurn = True
+              _actedThisTurn = True,
+              _possibleActions = []
             },
           Player
             { _pockets = Nothing,
@@ -186,7 +189,8 @@ callAllInHeadsUpFixture =
               _playerState = In,
               _playerName = "player1",
               _committed = 2450,
-              _actedThisTurn = True
+              _actedThisTurn = True,
+              _possibleActions = []
             }
         ]
     }
@@ -216,7 +220,8 @@ preDealHeadsUpFixture =
               _playerState = In,
               _playerName = "player0",
               _committed = 0,
-              _actedThisTurn = False
+              _actedThisTurn = False,
+              _possibleActions = []
             },
           Player
             { _pockets = Nothing,
@@ -225,7 +230,8 @@ preDealHeadsUpFixture =
               _playerState = In,
               _playerName = "player1",
               _committed = 50,
-              _actedThisTurn = True
+              _actedThisTurn = True,
+              _possibleActions = []
             }
         ]
     }
@@ -255,7 +261,8 @@ turnGameThreePlyrs =
               _playerState = In,
               _playerName = "player0",
               _committed = 50,
-              _actedThisTurn = False
+              _actedThisTurn = False,
+              _possibleActions = []
             },
           Player
             { _pockets = Nothing,
@@ -264,7 +271,8 @@ turnGameThreePlyrs =
               _playerState = In,
               _playerName = "player1",
               _committed = 250,
-              _actedThisTurn = False
+              _actedThisTurn = False,
+              _possibleActions = []
             },
           Player
             { _pockets = Nothing,
@@ -273,7 +281,8 @@ turnGameThreePlyrs =
               _playerState = In,
               _playerName = "player2",
               _committed = 250,
-              _actedThisTurn = False
+              _actedThisTurn = False,
+              _possibleActions = []
             }
         ]
     }
