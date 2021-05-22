@@ -8,7 +8,7 @@ module Poker.Game.Game where
 import Control.Lens (Field2 (_2), (%~), (&), (.~), (?~), (^.))
 import Data.List (find, mapAccumR)
 import qualified Data.List.Safe as Safe
-import Data.Maybe (fromJust)
+import Data.Maybe (fromJust, isNothing)
 import Data.Text (Text)
 import Poker.Game.Blinds
   ( blindRequiredByPlayer,
@@ -253,8 +253,8 @@ getNextHand Game {..} shuffledDeck =
 haveAllPlayersActed :: Game -> Bool
 haveAllPlayersActed g@Game {..}
   | _street == Showdown = True
-  | length activePlayers < 2 = True
   | _street == PreDeal = haveRequiredBlindsBeenPosted g
+  | length activePlayers < 2 = True
   | otherwise = not (awaitingPlayerAction g)
   where
     activePlayers = getActivePlayers _players
@@ -365,6 +365,7 @@ doesPlayerHaveToAct :: Text -> Game -> Bool
 doesPlayerHaveToAct playerName game@Game {..}
   | length _players < 2 = False
   | not $ inPositionToAct playerName game = False
+  | isNothing _currentPosToAct = False
   | otherwise =
     if currPosToActOutOfBounds
       then error $ "_currentPosToAct too large " <> show game

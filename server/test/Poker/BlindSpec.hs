@@ -6,7 +6,6 @@ module Poker.BlindSpec where
 import Control.Lens ((.~))
 import Data.Text (Text)
 import qualified Data.Text as T
-import HaskellWorks.Hspec.Hedgehog (require)
 import Hedgehog
   ( Property,
     assert,
@@ -38,6 +37,15 @@ import Poker.Types
     players,
   )
 import Test.Hspec (describe, it, shouldBe)
+import Test.Hspec.Hedgehog
+  ( PropertyT,
+    diff,
+    forAll,
+    hedgehog,
+    modifyMaxDiscardRatio,
+    (/==),
+    (===),
+  )
 
 initialGameState' :: Game
 initialGameState' = initialGameState initialDeck
@@ -271,9 +279,22 @@ spec = do
       getSmallBlindPosition threePlayerNames dealerPos `shouldBe` (0 :: Int)
 
   describe "getRequiredBlinds" $ do
-    it "Should return valid required blinds for two player game" $ require prop_requiredBlinds_always_valid_arrangement_for_2_plyrs
+    it "Should return valid required blinds for two player game" $
+      hedgehog $ do
+        let isTwoPlayers = (== 2) . length . _players
+        g <- forAll $ Gen.filter isTwoPlayers (genGame [PreDeal] allPStates)
+        let legalBlindArrangements = [[Small, Big], [Big, Small]]
+            requiredBlinds = getRequiredBlinds g
+        --
+        (requiredBlinds `elem` legalBlindArrangements) === True
 
-    it "Should return valid required blinds for three player game" $ require prop_requiredBlinds_always_valid_arrangement_for_3_plyrs
+    it "Should return valid required blinds for three player game" $
+      hedgehog $ do
+        let isThreePlayers = (== 3) . length . _players
+        g <- forAll $ Gen.filter isThreePlayers (genGame [PreDeal] allPStates)
+        let legalBlindArrangements = [[Small, Big, NoBlind], [Big, NoBlind, Small], [NoBlind, Small, Big]]
+            requiredBlinds = getRequiredBlinds g
+        (requiredBlinds `elem` legalBlindArrangements) === True
 
   describe "blinds" $ do
     describe "getSmallBlindPosition" $ do

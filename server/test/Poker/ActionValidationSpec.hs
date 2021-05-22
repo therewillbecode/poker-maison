@@ -311,8 +311,7 @@ prop_plyrShouldntBeAbleToPostBlindsOutsidePreDeal = withDiscards 225 . property 
 prop_plyrWithChipsShouldAlwaysBeableToFoldInTurn :: Property
 prop_plyrWithChipsShouldAlwaysBeableToFoldInTurn = withDiscards 225 . property $ do
   g <- forAll $ genGame actionStages [In]
-  let --      g' = g & players . element 0 %~ chips .~ 0
-      action' = Fold
+  let action' = Fold
       pName = "player0"
       inTurn = isRight $ isPlayerActingOutOfTurn g pName
       allIn = (== 0) $ _chips $ head $ _players g
@@ -618,7 +617,7 @@ spec = do
             (street .~ PreFlop) . (players .~ playerFixtures2) $
               initialGameState'
       let playerName = "player5"
-      canCall playerName game `shouldBe` Right ()
+      canCall playerName game `shouldBe` Left (InvalidMove "player5" CannotCallZeroAmountCheckOrBetInstead)
 
   describe "canFold" $ do
     it

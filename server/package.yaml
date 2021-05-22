@@ -108,4 +108,5 @@ tests:
       - poker-server
       - hspec
       - hedgehog
+      - hspec-hedgehog
       - hw-hspec-hedgehog

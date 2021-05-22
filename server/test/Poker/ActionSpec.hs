@@ -6,8 +6,6 @@ module Poker.ActionSpec where
 import Control.Lens (Ixed (ix), (.~), (^.), (^?))
 import Data.Text (Text)
 import qualified Data.Text as T
-import HaskellWorks.Hspec.Hedgehog ()
-import Hedgehog ()
 import qualified Hedgehog.Gen as Gen
 import qualified Hedgehog.Range as Range
 import Poker.Game.Actions
