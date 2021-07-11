@@ -13,6 +13,9 @@ import Control.Monad.Except
   )
 import Control.Monad.Logger
   ( LoggingT,
+    NoLoggingT,
+    runNoLoggingT,
+    runStderrLoggingT,
     runStdoutLoggingT,
   )
 import Control.Monad.Reader (runReaderT)
@@ -83,9 +86,9 @@ import Schema
   )
 import Types (Login (..), RedisConfig, Username (..))
 
-runAction :: ConnectionString -> SqlPersistT (LoggingT IO) a -> IO a
+runAction :: ConnectionString -> SqlPersistT (NoLoggingT IO) a -> IO a
 runAction connectionString action =
-  runStdoutLoggingT $
+  runNoLoggingT $
     withPostgresqlConn connectionString $ \backend ->
       runReaderT action backend
 

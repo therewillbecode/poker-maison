@@ -43,15 +43,7 @@ import Socket.Types
     MsgIn (SubscribeToTable),
     MsgOut (SuccessfullySubscribedToTable),
     ServerState (ServerState, clients, lobby),
-    Table
-      ( Table,
-        channel,
-        game,
-        gameInMailbox,
-        gameOutMailbox,
-        subscribers,
-        waitlist
-      ),
+    Table (..),
     TableDoesNotExistInLobby (TableDoesNotExistInLobby),
     TableName,
   )

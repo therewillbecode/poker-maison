@@ -85,17 +85,17 @@ canPostBlind game@Game {..} name blind
     activePlayersCount = length $ getActivePlayers _players
     notEnoughChipsErr = Left $ InvalidMove name NotEnoughChipsForAction
 
--- | The first player to post their blinds in the predeal stage  can do it from any
+-- | The first player to post their blinds in the predeal stage can do it from any
 -- position as long as there aren't enough players sat in to start a game
 -- Therefore the acting in turn rule wont apply for that first move
 -- when (< 2 players state set to sat in)
 isPlayerActingOutOfTurn :: Game -> PlayerName -> Either GameErr ()
 isPlayerActingOutOfTurn game@Game {..} name
+  | isNewGame = Right () -- Only Permit First Blind Posting to Be at Any Position When
+  -- starting new Game"
   | currPosToActOutOfBounds = error "_currentPosToAct too big"
   | isNothing _currentPosToAct && _street /= PreDeal = Left $ InvalidMove name $ NoPlayerCanAct
   | fromJust _currentPosToAct < 0 = error "_currentPosToAct player < 0"
-  | isNewGame = Right () -- Only Permit First Blind Posting to Be at Any Position When
-  -- starting new Game"
   | otherwise = case name `elemIndex` gamePlayerNames of
     Nothing -> Left $ NotAtTable name
     Just pos ->

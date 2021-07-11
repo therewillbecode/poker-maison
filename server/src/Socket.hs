@@ -161,24 +161,25 @@ runSocketServer secretKey port connString redisConfig = do
   forkBackgroundJobs connString serverStateTVar lobby
   print $ "Socket server listening on " ++ (show port :: String)
   _ <-
-    forkIO $
+    async $
       WS.runServer "0.0.0.0" port $
         application
           secretKey
           connString
           redisConfig
           serverStateTVar
-  _ <- forkIO $ delayThenSeatPlayer connString 1000000 serverStateTVar bot1
-  _ <- forkIO $ delayThenSeatPlayer connString 2000000 serverStateTVar bot2
-  _ <- forkIO $ delayThenSeatPlayer connString 3000000 serverStateTVar bot3
-  -- _ <- forkIO $ delayThenSeatPlayer connString 3000000 serverStateTVar bot4
-  -- _ <- forkIO $ delayThenSeatPlayer connString 3000000 serverStateTVar bot5
-  threadDelay 100000 --delay so bots dont start game until all of them sat down
-  _ <- forkIO $ startBotActionLoops connString serverStateTVar playersToWaitFor botNames
+  -- _ <- async $ delayThenSeatPlayer connString (sec * 8) serverStateTVar bot1
+  -- _ <- async $ delayThenSeatPlayer connString (sec * 9) serverStateTVar bot2
+  -- --_ <- forkIO $ delayThenSeatPlayer connString 3000000 serverStateTVar bot3
+  -- -- _ <- forkIO $ delayThenSeatPlayer connString 3000000 serverStateTVar bot4
+  -- -- _ <- forkIO $ delayThenSeatPlayer connString 3000000 serverStateTVar bot5
+  -- --threadDelay (sec * 8) --delay so bots dont start game until all of them sat down
+  -- _ <- async $ startBotActionLoops connString serverStateTVar playersToWaitFor botNames
   return ()
   where
-    botNames = (^. playerName) <$> [bot1, bot2]
-    playersToWaitFor = length botNames
+    sec = 1000000
+    botNames = (^. playerName) <$> [bot1]
+    playersToWaitFor = 2
 
 -- subscriptions are handled by combining each subscribers mailbox into one large mailbox
 -- where mew MsgOuts with new game states are posted

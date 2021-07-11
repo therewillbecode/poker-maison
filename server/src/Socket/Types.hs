@@ -59,13 +59,27 @@ newtype TableDoesNotExistInLobby
 
 instance Exception TableDoesNotExistInLobby
 
+data TableConfig = TableConfig
+  { bots :: Int, -- number of bots to maintain at table
+    minHumans :: Int -- number of humans to wait for before starting a game
+  }
+  deriving (Show, Eq, Generic, FromJSON, ToJSON)
+
+headsUpBotsConfig :: TableConfig
+headsUpBotsConfig =
+  TableConfig
+    { bots = 2,
+      minHumans = 0
+    }
+
 data Table = Table
   { subscribers :: [Username], -- observing public game state includes players sat down
     gameOutMailbox :: Input Game, -- outgoing MsgOuts broadcasts -> write source for msgs to propagate new game states to clients
     gameInMailbox :: Output Game, --incoming gamestates -> read (consume) source for new game states
     waitlist :: [Username], -- waiting to join a full table
     game :: Game,
-    channel :: TChan MsgOut
+    channel :: TChan MsgOut,
+    config :: TableConfig
   }
 
 instance Show Table where

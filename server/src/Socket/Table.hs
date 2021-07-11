@@ -13,6 +13,16 @@ import Control.Concurrent.STM
     swapTVar,
     throwSTM,
   )
+import Control.Lens ((^.))
+import Control.Monad
+  ( Monad (return),
+    forM_,
+    forever,
+    mapM_,
+    unless,
+    void,
+    when,
+  )
 import Control.Monad.Except
   ( Monad (return),
     MonadIO (liftIO),
@@ -31,8 +41,10 @@ import Control.Monad.Reader
   )
 import qualified Data.ByteString.Lazy.Char8 as C
 import Data.ByteString.UTF8 (fromString)
+import Data.Either (Either (Left, Right), isRight)
 import qualified Data.Map.Lazy as M
 import Data.Maybe (Maybe (..), fromMaybe)
+import Data.Text as T (Text, pack)
 import Database (dbGetTableEntity, dbInsertGame)
 import Database.Persist (Entity (Entity), PersistEntity (Key))
 import Database.Persist.Postgresql
@@ -63,24 +75,29 @@ import Pipes.Concurrent
 import Pipes.Core (push)
 import Pipes.Parse (yield)
 import qualified Pipes.Prelude as P
-import Poker.Game.Game
-  ( countPlayersNotAllIn,
-    doesPlayerHaveToAct,
-  )
+import Poker.ActionValidation (validateAction)
+import Poker.Game.Game (countPlayersNotAllIn, doesPlayerHaveToAct, initPlayer)
 import Poker.Game.Privacy (excludeOtherPlayerCards)
-import Poker.Game.Utils (getGamePlayerNames)
+import Poker.Game.Utils
+  ( getActivePlayers,
+    getGamePlayer,
+    getGamePlayerNames,
+    shuffledDeck,
+  )
 import Poker.Poker
   ( canProgressGame,
     progressGame,
     runPlayerAction,
   )
 import Poker.Types
-  ( Action (Timeout),
+  ( Action (Bet, Call, Check, Fold, PostBlind, Raise, SitDown, Timeout),
+    Blind (Big, Small),
     Game (..),
-    Player,
+    Player (..),
     PlayerAction (PlayerAction, action, name),
     PlayerName,
     Street (PreDeal, Showdown),
+    chips,
   )
 import Schema (Key, TableEntity)
 import Socket.Types
@@ -89,11 +106,17 @@ import Socket.Types
     MsgOut (NewGameState),
     ServerState (..),
     Table (..),
+    TableConfig (..),
     TableDoesNotExistInLobby (TableDoesNotExistInLobby),
     TableName,
   )
 import Socket.Utils (unLobby)
-import System.Random (RandomGen (next), getStdGen, setStdGen)
+import System.Random
+  ( Random (randomRIO),
+    RandomGen (next),
+    getStdGen,
+    setStdGen,
+  )
 import Types ()
 import Prelude
 
@@ -112,8 +135,63 @@ setUpTablePipes connStr s name Table {..} = do
           name
           gameOutMailbox
           gameInMailbox
+  threadDelay (7 * 1000000) -- delay so can see whats going on
+  async $
+    when
+      (botCount > 0)
+      $ runBots
+        ["bot1", "bot2"]
   where
+    botCount = bots config
+    runBots botNames = void $ async $ mapM_ botNames $ runBot gameInMailbox gameOutMailbox
     notFoundErr = error $ "Table " <> show name <> " doesn't exist in DB"
+
+runBot ::
+  Output Game -> -- bots progress game with action and then push new game state here
+  Input Game -> -- bots subscribe to new game state here then decide whether to act
+  Text ->
+  Consumer Game IO ()
+runBot gameInMailbox gameOutMailbox botName = do
+  g <- await
+  liftIO $ print " "
+  validActions <- liftIO $ getValidBotActions g botName
+  liftIO $ print "+++++ valid actions for: "
+  liftIO $ print botName
+  liftIO $ print validActions
+  liftIO $ print "+++++++++++++++++++++"
+  liftIO $ threadDelay (1 * 1000000) -- delay so can see whats going on
+  randIx <- liftIO $ randomRIO (0, length validActions - 1)
+  let action' = (validActions !! randIx) -- pick rand valid action
+  liftIO $ print "pick action: "
+  liftIO $ print action
+  liftIO $ print " "
+
+  liftIO $ threadDelay (3 * 1000000) -- delay so can see whats going on
+  liftIO $ unless (null validActions) $ act' g action'
+  where
+    act' game action =
+      runEffect $ yield (progressGame action game) >-> toOutput gameInMailbox
+
+getValidBotActions :: Game -> PlayerName -> IO [Action]
+getValidBotActions g@Game {..} name = do
+  betAmount' <- randomRIO (lowerBetBound, chipCount)
+  let possibleActions = actions _street betAmount'
+      actionsValidated = validateAction g name <$> possibleActions
+      pNameActionPairs = zip possibleActions actionsValidated
+  return $ (<$>) fst $ filter (isRight . snd) pNameActionPairs
+  where
+    --print "++++Valid actions for " <> show name <> "are: "
+    --print validActions
+    --print
+    --when (null validActions) panic
+    --randIx <- randomRIO (0, length validActions - 1)
+    --return $ Just $ PlayerAction {action = validActions !! randIx, ..}
+    actions :: Street -> Int -> [Action]
+    actions st chips
+      | st == PreDeal = [PostBlind Big, PostBlind Small, SitDown (initPlayer name 1500)]
+      | otherwise = [Check, Call, Fold, Bet chips, Raise chips]
+    lowerBetBound = if _maxBet > 0 then 2 * _maxBet else _bigBlind
+    chipCount = maybe 0 (^. chips) (getGamePlayer g name)
 
 -- this is the pipeline of effects we run everytime a new game state
 -- is placed in the tables
@@ -133,16 +211,16 @@ gamePipeline ::
   Output Game ->
   Effect IO ()
 gamePipeline connStr s key tableName outMailbox inMailbox = do
-  fromInput outMailbox
+  fromInput outMailbox -- game actions go in this input sink from websocket connections
     >-> broadcast s tableName
     >-> logGame tableName
     >-> updateTable s tableName
     >-> writeGameToDB connStr key
     >-> nextStagePause
     >-> timePlayer s tableName
-    >-> progress inMailbox
+    >-> progress inMailbox -- new gamestates go in this output source
 
--- should all be in stm monad not IO -- perhaps
+-- TODO should group as manny effect in stm monad not IO -- perhaps
 
 -- Delay to enhance UX based on game stages
 timePlayer :: TVar ServerState -> TableName -> Pipe Game Game IO ()
@@ -207,7 +285,7 @@ nextStagePause = do
 -- mailbox. This sends the new game state through the pipeline that
 -- the previous game state just went through.
 progress :: Output Game -> Consumer Game IO ()
-progress inMailbox = do
+progress gameInMailbox = do
   g <- await
   liftIO $ print "can progress game in pipe?"
   liftIO $ print $ (canProgressGame g)
@@ -217,7 +295,7 @@ progress inMailbox = do
       gen <- liftIO getStdGen
       liftIO $ setStdGen $ snd $ next gen
       liftIO $ print "PIPE PROGRESSING GAME"
-      runEffect $ yield (progressGame gen game) >-> toOutput inMailbox
+      runEffect $ yield (progressGame gen game) >-> toOutput gameInMailbox
 
 writeGameToDB :: ConnectionString -> Key TableEntity -> Pipe Game Game IO ()
 writeGameToDB connStr tableKey = do
@@ -247,6 +325,7 @@ broadcast s n = do
 logGame :: TableName -> Pipe Game Game IO ()
 logGame tableName = do
   g <- await
+  liftIO $ print g
   yield g
 
 -- Lookups up a table with the given name and writes the new game state

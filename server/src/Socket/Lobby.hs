@@ -33,6 +33,7 @@ import Socket.Types
     Table (..),
     TableName,
     TableSummary (..),
+    headsUpBotsConfig,
   )
 import Socket.Utils (unLobby)
 import System.Random (getStdGen)
@@ -52,7 +53,8 @@ initialLobby = do
             gameOutMailbox = input,
             waitlist = [],
             game = initialGameState shuffledDeck',
-            channel = chan
+            channel = chan,
+            config = headsUpBotsConfig
           }
   return $ Lobby $ M.fromList [("Black", table')]
 

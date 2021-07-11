@@ -64,6 +64,9 @@ import qualified Data.Text as T
 import Database (dbDepositChipsIntoPlay)
 import Database.Persist.Postgresql (ConnectionString)
 import qualified Network.WebSockets as WS
+import Pipes
+import Pipes.Concurrent
+import qualified Pipes.Prelude as P
 import Poker.ActionValidation (validateAction)
 import Poker.Game.Blinds (blindRequiredByPlayer)
 import Poker.Game.Game (doesPlayerHaveToAct, initPlayer)
@@ -127,36 +130,42 @@ bot5 = initPlayer "102@102" 2000
 startBotActionLoops ::
   ConnectionString -> TVar ServerState -> Int -> [PlayerName] -> IO ()
 startBotActionLoops db s playersToWaitFor botNames = do
-  --  threadDelay 1180000 --delay so bots dont start game until all of them sat down
+  print "ACTION LOOOPS STARTED -------------"
+  threadDelay 2500000 --delay so bots dont start game until all of them sat down
   ServerState {..} <- readTVarIO s
   case M.lookup tableName $ unLobby lobby of
     Nothing -> error "TableDoesNotExist "
-    Just table@Table {..} ->
-      mapM_ (botActionLoop db s channel playersToWaitFor) botNames
+    Just table@Table {..} -> do
+      print "2 - ACTION LOOP"
+      mapM_ (botActionLoop db s gameOutMailbox playersToWaitFor) botNames
   where
     tableName = "Black"
 
 botActionLoop ::
   ConnectionString ->
   TVar ServerState ->
-  TChan MsgOut ->
+  Input Game ->
   Int ->
   PlayerName ->
   IO ThreadId
-botActionLoop dbConn s tableChan playersToWaitFor botName = forkIO $ do
-  chan <- atomically $ dupTChan tableChan
-  print botName
-  print "create action loop"
+botActionLoop dbConn s gameOutMailbox playersToWaitFor botName = forkIO $
   forever $ do
-    msg <- atomically $ readTChan chan
-    print "action received"
-    case msg of
-      NewGameState tableName g ->
-        unless (shouldn'tStartGameYet g) (actIfNeeded g botName)
-      _ -> return ()
+    runEffect $
+      fromInput gameOutMailbox
+        >-> do
+          g <- await
+          liftIO $ print $ "botName:" <> (T.pack $ show botName) <> "received a game state"
+          liftIO $ print g
+          liftIO $ print "can I start a game? "
+          liftIO $ print $ (canStartGame g)
+          liftIO $ print $ show botName <> "can START " <> show (canStartGame g)
+          liftIO $
+            if (canStartGame g)
+              then runBotAction dbConn s g botName
+              else (actIfNeeded g botName)
   where
-    shouldn'tStartGameYet Game {..} =
-      _street == PreDeal && (length _players < playersToWaitFor)
+    canStartGame Game {..} =
+      _street == PreDeal && (length _players >= playersToWaitFor)
     actIfNeeded g' pName' =
       let hasToAct = doesPlayerHaveToAct pName' g'
        in when (hasToAct || (blindRequiredByPlayer g' pName' /= NoBlind)) $ do
