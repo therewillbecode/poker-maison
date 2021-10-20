@@ -1,4 +1,5 @@
 {-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE OverloadedStrings #-}
 
 module Socket.Table where
 
@@ -112,11 +113,6 @@ import Socket.Types
   )
 import Socket.Utils (unLobby)
 import System.Random
-  ( Random (randomRIO),
-    RandomGen (next),
-    getStdGen,
-    setStdGen,
-  )
 import Types ()
 import Prelude
 
@@ -135,17 +131,11 @@ setUpTablePipes connStr s name Table {..} = do
           name
           gameOutMailbox
           gameInMailbox
-  threadDelay (7 * 1000000) -- delay so can see whats going on
-  async $
-    when
-      (botCount > 0)
-      $ runBots
-        ["bot1", "bot2"]
+  --threadDelay (7 * 1000000) -- delay so can see whats going on
   where
-    botCount = bots config
-    runBots botNames = void $ async $ mapM_ botNames $ runBot gameInMailbox gameOutMailbox
+--    botPipes botNames = mapM_ (runBot gameInMailbox gameOutMailbox) botNames
     notFoundErr = error $ "Table " <> show name <> " doesn't exist in DB"
-
+{-
 runBot ::
   Output Game -> -- bots progress game with action and then push new game state here
   Input Game -> -- bots subscribe to new game state here then decide whether to act
@@ -171,6 +161,7 @@ runBot gameInMailbox gameOutMailbox botName = do
   where
     act' game action =
       runEffect $ yield (progressGame action game) >-> toOutput gameInMailbox
+-}
 
 getValidBotActions :: Game -> PlayerName -> IO [Action]
 getValidBotActions g@Game {..} name = do

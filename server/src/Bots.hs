@@ -98,7 +98,7 @@ import Socket.Types
       ),
   )
 import Socket.Utils (unLobby)
-import System.Random (Random (randomRIO))
+import System.Random (randomRIO)
 import Text.Pretty.Simple (pPrint)
 import Types ()
 import Prelude

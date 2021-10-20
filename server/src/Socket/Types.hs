@@ -18,6 +18,15 @@ import Database.Persist.Postgresql (ConnectionString)
 import GHC.Generics (Generic)
 import qualified Network.WebSockets as WS
 import Pipes.Concurrent (Input, Output)
+import Pipes
+  ( Consumer,
+    Effect,
+    Pipe,
+    await,
+    runEffect,
+    yield,
+    (>->),
+  )
 import Poker.Types
   ( Action,
     Game,
@@ -60,15 +69,14 @@ newtype TableDoesNotExistInLobby
 instance Exception TableDoesNotExistInLobby
 
 data TableConfig = TableConfig
-  { bots :: Int, -- number of bots to maintain at table
+  { botCount :: Int, -- number of bots to maintain at table
     minHumans :: Int -- number of humans to wait for before starting a game
-  }
-  deriving (Show, Eq, Generic, FromJSON, ToJSON)
+  } deriving (Show, Eq, Generic, FromJSON, ToJSON)
 
 headsUpBotsConfig :: TableConfig
 headsUpBotsConfig =
   TableConfig
-    { bots = 2,
+    { botCount = 2,
       minHumans = 0
     }
 
@@ -77,6 +85,7 @@ data Table = Table
     gameOutMailbox :: Input Game, -- outgoing MsgOuts broadcasts -> write source for msgs to propagate new game states to clients
     gameInMailbox :: Output Game, --incoming gamestates -> read (consume) source for new game states
     waitlist :: [Username], -- waiting to join a full table
+    bots :: Maybe (Consumer Game IO ()),
     game :: Game,
     channel :: TChan MsgOut,
     config :: TableConfig
