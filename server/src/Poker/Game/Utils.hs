@@ -11,12 +11,13 @@ import Data.Map.Lazy (Map)
 import qualified Data.Map.Lazy as M
 import Data.Text (Text)
 import Poker.Types
-  ( Card (Card),
+  ( ActiveState (..),
+    Card (Card),
     Deck (..),
     Game (..),
     Player (..),
     PlayerName,
-    PlayerState (In, SatOut),
+    PlayerState (..),
     Street (PreDeal),
     playerName,
     playerState,
@@ -74,7 +75,11 @@ modDec num modulo
 -- whereas sat in means that the player has at the very least had some historical participation
 -- in the current hand
 getActivePlayers :: [Player] -> [Player]
-getActivePlayers = filter (\Player {..} -> _playerState == In)
+getActivePlayers =
+  filter
+    ( \Player {..} ->
+        _playerState == SatIn Folded || _playerState == SatIn NotFolded
+    )
 
 filterPlayersWithLtChips :: Int -> [Player] -> [Player]
 filterPlayersWithLtChips count = filter (\Player {..} -> _chips >= count)
@@ -96,7 +101,7 @@ getPlayerPosition :: [PlayerName] -> PlayerName -> Maybe Int
 getPlayerPosition playersSatIn playerName = playerName `elemIndex` playersSatIn
 
 getPlayerPosition' :: PlayerName -> [Player] -> Maybe Int
-getPlayerPosition' playerName = (flip getPlayerPosition) playerName . getPlayerNames . getPlayersSatIn
+getPlayerPosition' playerName = flip getPlayerPosition playerName . getPlayerNames . getPlayersSatIn
 
 getGameStage :: Game -> Street
 getGameStage game = game ^. street

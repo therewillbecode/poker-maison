@@ -14,11 +14,12 @@ import Data.Maybe (fromJust)
 import Poker.Game.Blinds (getPosNextBlind)
 import Poker.Game.Game (nextPosToAct)
 import Poker.Types
-  ( Blind (Small),
+  ( ActiveState (..),
+    Blind (Small),
     Game (..),
     Player (..),
     PlayerName,
-    PlayerState (Folded, In, SatOut),
+    PlayerState (..),
     actedThisTurn,
     bet,
     chips,
@@ -44,7 +45,7 @@ placeBet value plyr =
         & (chips -~ betAmount)
           . (bet +~ betAmount)
           . (committed +~ betAmount)
-          . (playerState .~ In)
+          . (playerState .~ SatIn NotFolded)
 
 markActed :: Player -> Player
 markActed = actedThisTurn .~ True
@@ -53,7 +54,7 @@ updateMaxBet :: Int -> Game -> Game
 updateMaxBet amount = maxBet %~ max amount
 
 markInForHand :: Player -> Player
-markInForHand = playerState .~ In
+markInForHand = playerState .~ SatIn NotFolded
 
 -- Will increment the game's current position to act to the next position
 -- where a blind is required. Skipping players that do not have to post blinds
@@ -99,7 +100,7 @@ foldCards pName game@Game {..} =
     newPlayers =
       ( \p@Player {..} ->
           if _playerName == pName
-            then (markActed . (playerState .~ Folded)) p
+            then (markActed . (playerState .~ SatIn Folded)) p
             else p
       )
         <$> _players
@@ -145,7 +146,7 @@ sitIn plyrName =
     %~ (<$>)
       ( \p@Player {..} ->
           if _playerName == plyrName
-            then Player {_playerState = In, _actedThisTurn = False, ..}
+            then Player {_playerState = SatIn NotFolded, _actedThisTurn = False, ..}
             else p
       )
 

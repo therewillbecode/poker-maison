@@ -87,11 +87,11 @@ data HandRank
 
 type Bet = Int
 
-data PlayerState
-  = SatOut -- SatOut denotes a player that will not be dealt cards unless they send a postblinds action to the server
-  | Folded
-  | In
-  deriving (Eq, Show, Ord, Enum, Bounded, Read, Generic, ToJSON, FromJSON)
+--data ActivePlayerState
+--  = SatOut -- SatOut denotes a player that will not be dealt cards unless they send a postblinds action to the server
+--  | Folded
+--  | In
+--  deriving (Eq, Show, Ord, Enum, Bounded, Read, Generic, ToJSON, FromJSON)
 
 data Street
   = PreDeal
@@ -101,6 +101,12 @@ data Street
   | River
   | Showdown
   deriving (Eq, Ord, Show, Read, Bounded, Enum, Generic, ToJSON, FromJSON)
+
+data ActiveState = Folded | NotFolded deriving (Eq, Show, Ord, Enum, Bounded, Read, Generic, ToJSON, FromJSON)
+
+-- SatOut denotes a player that will not be dealt cards unless they send a postblinds action to the server
+--  | Folded
+data PlayerState = SatOut | SatIn ActiveState deriving (Eq, Show, Ord, Read, Generic, ToJSON, FromJSON)
 
 data Player = Player
   { _pockets :: Maybe PocketCards,

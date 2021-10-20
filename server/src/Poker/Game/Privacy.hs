@@ -9,11 +9,12 @@ import Control.Lens ((%~), (&), (.~))
 import Data.Text (Text)
 import Poker.Game.Game (canPubliciseActivesCards)
 import Poker.Types
-  ( Deck (Deck),
+  ( ActiveState (NotFolded),
+    Deck (Deck),
     Game,
     Player (..),
     PlayerName,
-    PlayerState (In),
+    PlayerState (..),
     deck,
     players,
   )
@@ -58,13 +59,13 @@ excludePrivateCards maybePlayerName game =
 updatePocketCardsForSpectator :: Bool -> (Player -> Player)
 updatePocketCardsForSpectator showAllActivesCards
   | showAllActivesCards = \player@Player {..} ->
-    if _playerState == In then player else Player {_pockets = Nothing, ..}
+    if _playerState == SatIn NotFolded then player else Player {_pockets = Nothing, ..}
   | otherwise = \Player {..} -> Player {_pockets = Nothing, ..}
 
 updatePocketCardsForPlayer :: Bool -> PlayerName -> (Player -> Player)
 updatePocketCardsForPlayer showAllActivesCards playerName
   | showAllActivesCards = \player@Player {..} ->
-    if (_playerState == In) || (_playerName == playerName)
+    if (_playerState == SatIn NotFolded) || (_playerName == playerName)
       then player
       else Player {_pockets = Nothing, ..}
   | otherwise = \player@Player {..} ->

@@ -19,11 +19,12 @@ import Poker.Game.Utils
     modInc,
   )
 import Poker.Types
-  ( Blind (..),
+  ( ActiveState (..),
+    Blind (..),
     Game (..),
     Player (..),
     PlayerName,
-    PlayerState (In),
+    PlayerState (..),
     Street (PreDeal),
     players,
   )
@@ -72,7 +73,7 @@ activatePlayersWhenNoBlindNeeded = zipWith updatePlayer
   where
     updatePlayer blindReq Player {..} =
       Player
-        { _playerState = if blindReq == NoBlind then In else _playerState,
+        { _playerState = if blindReq == NoBlind then SatIn NotFolded else _playerState,
           ..
         }
 

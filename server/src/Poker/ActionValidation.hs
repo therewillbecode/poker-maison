@@ -31,6 +31,7 @@ import Poker.Game.Utils
   )
 import Poker.Types
   ( Action (..),
+    ActiveState (NotFolded),
     Blind (..),
     CurrentPlayerToActErr (CurrentPlayerToActErr),
     Game (..),
@@ -38,7 +39,7 @@ import Poker.Types
     InvalidMoveErr (..),
     Player (..),
     PlayerName,
-    PlayerState (In, SatOut),
+    PlayerState (..),
     Street (PreDeal, PreFlop, Showdown),
     Winners (MultiPlayerShowdown, SinglePlayerShowdown),
   )
@@ -111,7 +112,7 @@ isPlayerActingOutOfTurn game@Game {..} name
   where
     gamePlayerNames = getGamePlayerNames game
     numberOfPlayersSatIn =
-      length $ filter (\Player {..} -> _playerState == In) _players
+      length $ filter (\Player {..} -> _playerState == SatIn NotFolded) _players
     currPosToActOutOfBounds =
       maybe False ((length _players - 1) <) _currentPosToAct
     isNewGame = _street == PreDeal && isNothing _currentPosToAct
@@ -230,7 +231,7 @@ canSitIn :: PlayerName -> Game -> Either GameErr ()
 canSitIn name game@Game {..}
   | _street /= PreDeal = Left $ InvalidMove name CannotSitInOutsidePreDeal
   | isNothing currentState = Left $ NotAtTable name
-  | currentState == Just In = Left $ InvalidMove name AlreadySatIn
+  | currentState == Just (SatIn NotFolded) = Left $ InvalidMove name AlreadySatIn
   | otherwise = Right ()
   where
     currentState = getGamePlayerState game name

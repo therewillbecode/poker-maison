@@ -28,7 +28,8 @@ import Poker.Game.Utils
     modInc,
   )
 import Poker.Types
-  ( Blind (NoBlind),
+  ( ActiveState (..),
+    Blind (NoBlind),
     Card,
     Deck (..),
     Game (..),
@@ -36,7 +37,7 @@ import Poker.Types
     Player (..),
     PlayerName,
     PlayerShowdownHand (..),
-    PlayerState (Folded, In, SatOut),
+    PlayerState (..),
     PocketCards (..),
     Street (..),
     Winners (..),
@@ -61,7 +62,7 @@ dealToPlayers :: Deck -> [Player] -> (Deck, [Player])
 dealToPlayers =
   mapAccumR
     ( \deck player ->
-        if player ^. playerState == In
+        if player ^. playerState == SatIn NotFolded
           then
             let (pocketCs, remainingDeck) = dealPockets deck
              in (remainingDeck, (pockets ?~ pocketCs) player)
@@ -265,7 +266,7 @@ awaitingPlayerAction Game {..} =
   where
     activePlayers = getActivePlayers _players
     canAct maxBet' Player {..} =
-      _playerState /= Folded
+      _playerState /= SatIn Folded
         && _chips > 0
         && (not _actedThisTurn || _actedThisTurn && (_bet < maxBet'))
 
@@ -281,7 +282,7 @@ getWinners game@Game {..} =
       SinglePlayerShowdown $
         head $
           flip (^.) playerName
-            <$> filter (\Player {..} -> _playerState == In) _players
+            <$> filter (\Player {..} -> _playerState == SatIn NotFolded) _players
     else MultiPlayerShowdown $ maximums $ getHandRankings _players _board
 
 -- Return the best hands and the active players (playerState of In) who hold
@@ -318,7 +319,7 @@ resetPlayerCardsAndBets Player {..} =
   where
     newPlayerState
       | _chips == 0 = SatOut
-      | _playerState == Folded || _playerState == In = In
+      | _playerState == SatIn Folded || _playerState == SatIn NotFolded = SatIn NotFolded
       | otherwise = SatOut
 
 -- The game should go straight to showdown if all but one players is In hand
@@ -326,14 +327,14 @@ allButOneFolded :: Game -> Bool
 allButOneFolded game@Game {..} =
   _street /= PreDeal && length playersInHand <= 1
   where
-    playersInHand = filter ((== In) . (^. playerState)) _players
+    playersInHand = filter ((== SatIn NotFolded) . (^. playerState)) _players
 
 initPlayer :: Text -> Int -> Player
 initPlayer playerName chips =
   Player
     { _pockets = Nothing,
       _bet = 0,
-      _playerState = In,
+      _playerState = SatIn NotFolded,
       _playerName = playerName,
       _possibleActions = [],
       _committed = 0,
@@ -379,7 +380,7 @@ doesPlayerHaveToAct playerName game@Game {..}
               || activePlayerCount < 2
               || haveAllPlayersActed game
               || _playerState
-              /= In
+              /= SatIn NotFolded
               || _street
               == PreDeal && _maxBet
               == 0 ->
@@ -392,7 +393,7 @@ doesPlayerHaveToAct playerName game@Game {..}
             _playerName == playerName
   where
     activePlayerCount =
-      length $ filter (\Player {..} -> _playerState == In) _players
+      length $ filter (\Player {..} -> _playerState == SatIn NotFolded) _players
     currPosToActOutOfBounds =
       maybe False ((length _players - 1) <) _currentPosToAct
 
@@ -417,7 +418,7 @@ nextIPlayerToAct Game {..} = nextIPlayer
       Just currPos ->
         let nextIPlayerToAct = tail $ iplayers' currPos
          in find
-              (\(_, Player {..}) -> _playerState == In && _chips > 0)
+              (\(_, Player {..}) -> _playerState == SatIn NotFolded && _chips > 0)
               nextIPlayerToAct
 
 -- gets the position of the next player which needs to act
@@ -464,4 +465,4 @@ countPlayersNotAllIn game@Game {..}
   where
     numPlayersIn = length $ getActivePlayers _players
     numPlayersAllIn =
-      length $ filter (\Player {..} -> _playerState == In && _chips == 0) _players
+      length $ filter (\Player {..} -> _playerState == SatIn NotFolded && _chips == 0) _players
