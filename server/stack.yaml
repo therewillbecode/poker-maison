@@ -12,7 +12,7 @@
 #
 # resolver: ./custom-snapshot.yaml
 # resolver: https://example.com/snapshots/2018-01-01.yaml
-resolver: lts-17.11
+resolver: lts-18.13
 
 # User packages to be built.
 # Various formats can be used as shown in the example below.
@@ -39,8 +39,9 @@ extra-deps:
   - ekg-core-0.1.1.7@sha256:c4356aefea0e1e2f80a236d3b3f81b83b445c1e53519302e96477da0adee2e9f,2039
   - ekg-json-0.1.0.6@sha256:e16efc1b09ae7635db3f0535335ee3e8aa666fe4bf3749783f4022020f6ca3b8,1050
 
+
 nix:
-  enable: true
+  enable: false
   pure: false
   packages: [ postgresql zlib ]
 
