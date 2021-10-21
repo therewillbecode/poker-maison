@@ -19,15 +19,6 @@ import Poker.Game.Utils
     modInc,
   )
 import Poker.Types
-  ( Blind (..),
-    Game (..),
-    Player (..),
-    PlayerName,
-    PlayerState (..),
-    SatInState (..),
-    Street (PreDeal),
-    players,
-  )
 import Text.Read (readMaybe)
 import Prelude
 
@@ -53,8 +44,8 @@ haveRequiredBlindsBeenPosted game@Game {..} =
     zipWith
       ( \requiredBlind Player {..} -> case requiredBlind of
           NoBlind -> True
-          Big -> _committed == _bigBlind
-          Small -> _committed == _smallBlind
+          Big -> fromCommittedChips _committed == _bigBlind
+          Small -> fromCommittedChips _committed == _smallBlind
       )
       requiredBlinds
       _players
@@ -73,7 +64,7 @@ activatePlayersWhenNoBlindNeeded = zipWith updatePlayer
   where
     updatePlayer blindReq Player {..} =
       Player
-        { _playerState = if blindReq == NoBlind then SatIn NotFolded else _playerState,
+        { _playerState = if blindReq == NoBlind then SatIn HasNotActedYet else _playerState,
           ..
         }
 

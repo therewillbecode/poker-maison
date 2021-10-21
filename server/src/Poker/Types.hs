@@ -1,9 +1,14 @@
+{-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE GADTs #-}
+{-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE StandaloneKindSignatures #-}
 {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TypeFamilies #-}
 
 module Poker.Types where
 
@@ -13,6 +18,7 @@ import Data.Function (on)
 import Data.Text (Text)
 import qualified Data.Text.Lazy as LT
 import Database.Persist.TH (derivePersistField)
+import GHC.Base (NonEmpty)
 import GHC.Generics (Generic)
 
 data Rank
@@ -102,38 +108,64 @@ data Street
   | Showdown
   deriving (Eq, Ord, Show, Read, Bounded, Enum, Generic, ToJSON, FromJSON)
 
--- better
---data InHand = AllIn | NotAllIn
---data SatInState = Folded | In InHand deriving (Eq, Show, Ord, Read, Generic, ToJSON, FromJSON)
--- then use GADTs for game
--- -> Two Active Players to start game
--- 3 cards to progress game to flop
-
-data SatInState = Folded | NotFolded deriving (Eq, Show, Ord, Enum, Bounded, Read, Generic, ToJSON, FromJSON)
-
--- SatOut denotes a player that will not be dealt cards unless they send a postblinds action to the server
---  | Folded
-data PlayerState = SatOut | SatIn SatInState
-  deriving (Eq, Show, Ord, Read, Generic, ToJSON, FromJSON)
-
-data Player = Player
-  { _pockets :: Maybe PocketCards,
-    _chips :: Int,
-    _bet :: Bet,
-    _playerState :: PlayerState,
-    _playerName :: Text,
-    _possibleActions :: [Action],
-    _committed :: Bet,
-    _actedThisTurn :: Bool
-  }
-  deriving (Show, Eq, Read, Ord, Generic, ToJSON, FromJSON)
-
 data PocketCards
   = PocketCards Card Card
   deriving (Show, Eq, Read, Ord, Generic, ToJSON, FromJSON)
 
 unPocketCards :: PocketCards -> [Card]
 unPocketCards (PocketCards c1 c2) = [c1, c2]
+
+-- The amount of chips bet by the player this turn.
+newtype CommittedChips = CommittedChips Chips deriving (Eq, Show, Ord, Read, Generic, ToJSON, FromJSON)
+
+newtype Chips = Chips Int deriving (Eq, Show, Ord, Read, Generic, ToJSON, FromJSON)
+
+mkChips :: Int -> Maybe Chips
+mkChips n
+  | n < 0 = Nothing
+  | otherwise = pure $ Chips n
+
+unChips :: Chips -> Int
+unChips (Chips n) = n
+
+unCommittedChips :: CommittedChips -> Chips
+unCommittedChips (CommittedChips cs) = cs
+
+fromCommittedChips :: CommittedChips -> Int
+fromCommittedChips = unChips . unCommittedChips
+
+data HasBet = HasCalled | HasRaised | HasReRaised
+  deriving (Eq, Show, Read, Ord, Generic, ToJSON, FromJSON)
+
+data ActionTaken = HasBet Chips | HasChecked | HasFolded
+  deriving (Eq, Show, Read, Ord, Generic, ToJSON, FromJSON)
+
+data InPlayerState = HasActed ActionTaken | HasNotActedYet | AllIn
+  deriving (Eq, Show, Read, Ord, Generic, ToJSON, FromJSON)
+
+data PlayerState = SatOut | SatIn InPlayerState
+  deriving (Eq, Ord, Show, Read, Generic, ToJSON, FromJSON)
+
+data CanAct = CanAct | CannotAct
+  deriving (Eq, Ord, Show, Read, Generic, ToJSON, FromJSON)
+
+canAct :: Player -> CanAct
+canAct Player {..} =
+  case _playerState of
+    SatIn HasNotActedYet -> CanAct
+    SatIn (HasActed _) -> CanAct
+    SatIn AllIn -> CannotAct
+    SatOut -> CannotAct
+
+data Player = Player
+  { _pockets :: PocketCards,
+    _chips :: Chips,
+    _committed :: CommittedChips,
+    _playerState :: PlayerState,
+    _playerName :: Text,
+    _possibleActions :: [Action]
+  }
+  deriving (Eq, Show, Ord, Read, Generic, ToJSON, FromJSON)
 
 -- Highest ranking hand for a given Player that is in the game
 -- during the Showdown stage of the game (last stage)
@@ -225,7 +257,7 @@ data PlayerAction = PlayerAction
   { name :: PlayerName,
     action :: Action
   }
-  deriving (Show, Eq, Read, Ord, Generic, ToJSON, FromJSON)
+  deriving (Show, Eq, Read, Generic, ToJSON, FromJSON)
 
 -- If you can check, that is you aren't facing an amount you have to call,
 -- then when you put in chips it is called a bet. If you have to put in
@@ -251,7 +283,7 @@ data Action
   | SitOut
   | SitIn
   | Timeout
-  deriving (Show, Eq, Read, Ord, Generic, ToJSON, FromJSON)
+  deriving (Show, Ord, Eq, Read, Generic, ToJSON, FromJSON)
 
 data GameErr
   = NotEnoughChips PlayerName

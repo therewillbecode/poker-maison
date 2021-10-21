@@ -11,18 +11,22 @@ import Data.Map.Lazy (Map)
 import qualified Data.Map.Lazy as M
 import Data.Text (Text)
 import Poker.Types
-  ( Card (Card),
+  ( ActionTaken (..),
+    CanAct (..),
+    Card (Card),
     Deck (..),
     Game (..),
+    InPlayerState (..),
     Player (..),
     PlayerName,
     PlayerState (..),
-    SatInState (..),
     Street (PreDeal),
+    canAct,
     playerName,
     playerState,
     players,
     street,
+    unChips,
     unDeck,
   )
 import System.Random (Random (randomR), RandomGen)
@@ -75,14 +79,14 @@ modDec num modulo
 -- whereas sat in means that the player has at the very least had some historical participation
 -- in the current hand
 getActivePlayers :: [Player] -> [Player]
-getActivePlayers =
-  filter
-    ( \Player {..} ->
-        _playerState == SatIn Folded || _playerState == SatIn NotFolded
-    )
+getActivePlayers = filter ((==) CanAct . canAct)
 
 filterPlayersWithLtChips :: Int -> [Player] -> [Player]
-filterPlayersWithLtChips count = filter (\Player {..} -> _chips >= count)
+filterPlayersWithLtChips count =
+  filter
+    ( \Player {..} ->
+        unChips _chips >= count
+    )
 
 filterSatOutPlayers :: [Player] -> [Player]
 filterSatOutPlayers = filter (\Player {..} -> _playerState /= SatOut)
@@ -123,7 +127,7 @@ getGamePlayerNames game = _playerName <$> _players game
 
 getPlayerChipCounts :: Game -> [(Text, Int)]
 getPlayerChipCounts Game {..} =
-  (\Player {..} -> (_playerName, _chips)) <$> _players
+  (\Player {..} -> (_playerName, unChips _chips)) <$> _players
 
 getPlayerNames :: [Player] -> [Text]
 getPlayerNames players = (^. playerName) <$> players

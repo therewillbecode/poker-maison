@@ -28,32 +28,6 @@ import Poker.Game.Utils
     modInc,
   )
 import Poker.Types
-  ( Blind (NoBlind),
-    Card,
-    Deck (..),
-    Game (..),
-    HandRank,
-    Player (..),
-    PlayerName,
-    PlayerShowdownHand (..),
-    PlayerState (..),
-    PocketCards (..),
-    SatInState (..),
-    Street (..),
-    Winners (..),
-    actedThisTurn,
-    bet,
-    currentPosToAct,
-    maxBet,
-    playerName,
-    playerState,
-    players,
-    pockets,
-    street,
-    unDeck,
-    unPocketCards,
-    winners,
-  )
 
 -- | Returns both the dealt players and remaining cards left in deck.
 -- We return the new deck for the purposes of dealing the board cards
