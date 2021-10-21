@@ -11,13 +11,13 @@ import Data.Map.Lazy (Map)
 import qualified Data.Map.Lazy as M
 import Data.Text (Text)
 import Poker.Types
-  ( ActiveState (..),
-    Card (Card),
+  ( Card (Card),
     Deck (..),
     Game (..),
     Player (..),
     PlayerName,
     PlayerState (..),
+    SatInState (..),
     Street (PreDeal),
     playerName,
     playerState,

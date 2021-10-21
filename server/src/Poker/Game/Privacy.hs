@@ -9,12 +9,12 @@ import Control.Lens ((%~), (&), (.~))
 import Data.Text (Text)
 import Poker.Game.Game (canPubliciseActivesCards)
 import Poker.Types
-  ( ActiveState (NotFolded),
-    Deck (Deck),
+  ( Deck (Deck),
     Game,
     Player (..),
     PlayerName,
     PlayerState (..),
+    SatInState (NotFolded),
     deck,
     players,
   )

@@ -14,12 +14,12 @@ import Data.Maybe (fromJust)
 import Poker.Game.Blinds (getPosNextBlind)
 import Poker.Game.Game (nextPosToAct)
 import Poker.Types
-  ( ActiveState (..),
-    Blind (Small),
+  ( Blind (Small),
     Game (..),
     Player (..),
     PlayerName,
     PlayerState (..),
+    SatInState (..),
     actedThisTurn,
     bet,
     chips,

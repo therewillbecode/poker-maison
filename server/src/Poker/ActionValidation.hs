@@ -31,7 +31,6 @@ import Poker.Game.Utils
   )
 import Poker.Types
   ( Action (..),
-    ActiveState (NotFolded),
     Blind (..),
     CurrentPlayerToActErr (CurrentPlayerToActErr),
     Game (..),
@@ -40,6 +39,7 @@ import Poker.Types
     Player (..),
     PlayerName,
     PlayerState (..),
+    SatInState (NotFolded),
     Street (PreDeal, PreFlop, Showdown),
     Winners (MultiPlayerShowdown, SinglePlayerShowdown),
   )

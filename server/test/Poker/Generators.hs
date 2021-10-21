@@ -42,8 +42,9 @@ import Poker.Types
     Game (..),
     Player (..),
     PlayerName,
-    PlayerState (Folded, SatOut),
+    PlayerState (..),
     PocketCards (..),
+    SatInState (..),
     Street (..),
     Suit (Diamonds, Spades),
     Winners (NoWinners),
@@ -54,7 +55,7 @@ import Poker.Types
 import Prelude
 
 allPStates :: [PlayerState]
-allPStates = [SatOut ..]
+allPStates = [SatOut, SatIn Folded, SatIn NotFolded]
 
 allPStreets :: [Street]
 allPStreets = [PreDeal ..]
@@ -150,7 +151,7 @@ genPlayer street' _playerState _playerName _pockets = do
   _actedThisTurn <- if _playerState == SatOut then Gen.constant False else Gen.bool
   return Player {..}
   where
-    minChips = if _playerState == Folded then 1 else 0
+    minChips = if _playerState == SatIn Folded then 1 else 0
     _possibleActions = []
 
 genGame :: [Street] -> [PlayerState] -> Gen Game

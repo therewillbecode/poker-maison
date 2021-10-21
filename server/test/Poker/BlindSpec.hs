@@ -30,7 +30,8 @@ import Poker.Types
     Deck (Deck),
     Game (..),
     Player (..),
-    PlayerState (In, SatOut),
+    PlayerState (..),
+    SatInState (..),
     Street (PreDeal),
     Winners (NoWinners),
     playerState,
@@ -58,7 +59,7 @@ twoPlayerGame =
             { _pockets = Nothing,
               _chips = 1950,
               _bet = 50,
-              _playerState = In,
+              _playerState = SatIn NotFolded,
               _playerName = "player1",
               _committed = 50,
               _actedThisTurn = False,
@@ -99,7 +100,7 @@ twoPlayerGameAllBlindsPosted =
             { _pockets = Nothing,
               _chips = 1950,
               _bet = 25,
-              _playerState = In,
+              _playerState = SatIn NotFolded,
               _playerName = "player1",
               _committed = 25,
               _actedThisTurn = True,
@@ -109,7 +110,7 @@ twoPlayerGameAllBlindsPosted =
             { _pockets = Nothing,
               _chips = 2000,
               _bet = 50,
-              _playerState = In,
+              _playerState = SatIn NotFolded,
               _playerName = "player2",
               _committed = 50,
               _actedThisTurn = True,
@@ -201,7 +202,7 @@ threePlayerGameAllBlindsPosted =
             { _pockets = Nothing,
               _chips = 2000,
               _bet = 25,
-              _playerState = In,
+              _playerState = SatIn NotFolded,
               _playerName = "player2",
               _committed = 25,
               _actedThisTurn = False,
@@ -211,7 +212,7 @@ threePlayerGameAllBlindsPosted =
             { _pockets = Nothing,
               _chips = 2000,
               _bet = 50,
-              _playerState = In,
+              _playerState = SatIn NotFolded,
               _playerName = "player3",
               _committed = 50,
               _actedThisTurn = False,
@@ -310,23 +311,23 @@ spec = do
     describe "blindRequiredByPlayer" $ do
       it "returns Small if player position is dealer + 1 for three players" $ do
         let testPlayers =
-              (playerState .~ In)
+              (playerState .~ SatIn NotFolded)
                 <$> (initPlayer <$> ["Player1", "Player2", "Player3"] <*> [100])
         let game = players .~ testPlayers $ initialGameState'
         blindRequiredByPlayer game "Player2" `shouldBe` Small
 
       it "returns Big if player position is dealer + 2 for three players" $ do
         let testPlayers =
-              (playerState .~ In)
+              (playerState .~ SatIn NotFolded)
                 <$> (initPlayer <$> ["Player1", "Player2", "Player3"] <*> [100])
         let game = players .~ testPlayers $ initialGameState'
         blindRequiredByPlayer game "Player3" `shouldBe` Big
 
       it
-        "returns NoBlind if player position is dealer for three players and playerState is In"
+        "returns NoBlind if player position is dealer for three players and playerState is SatIn NotFolded"
         $ do
           let testPlayers =
-                (playerState .~ In)
+                (playerState .~ SatIn NotFolded)
                   <$> (initPlayer <$> ["Player1", "Player2", "Player3"] <*> [100])
           let game = players .~ testPlayers $ initialGameState'
           blindRequiredByPlayer game "Player1" `shouldBe` NoBlind
@@ -342,7 +343,7 @@ spec = do
 
       it "returns Small if player position is dealer for two players" $ do
         let testPlayers =
-              (playerState .~ In)
+              (playerState .~ SatIn NotFolded)
                 <$> (initPlayer <$> ["Player1", "Player2"] <*> [100])
         let game = players .~ testPlayers $ initialGameState'
         blindRequiredByPlayer game "Player1" `shouldBe` Small
@@ -371,22 +372,22 @@ spec = do
 
   describe "updatePlayersInHand" $ do
     it
-      "should set players that are not in blind position to In for three players"
+      "should set players that are not in blind position to SatIn NotFolded for three players"
       $ do
         let newGame = updatePlayersInHand threePlayerGameAllBlindsPosted
         let playerStates = (\Player {..} -> _playerState) <$> _players newGame
-        playerStates `shouldBe` [In, In, In]
+        playerStates `shouldBe` [SatIn NotFolded, SatIn NotFolded, SatIn NotFolded]
 
     it
       "should return correct player states for two players when all blinds posted"
       $ do
         let newGame = updatePlayersInHand twoPlayerGameAllBlindsPosted
         let playerStates = (\Player {..} -> _playerState) <$> _players newGame
-        playerStates `shouldBe` [In, In]
+        playerStates `shouldBe` [SatIn NotFolded, SatIn NotFolded]
 
     it
       "should return correct player states for two players when not all blinds posted"
       $ do
         let newGame = updatePlayersInHand twoPlayerGame
         let playerStates = (\Player {..} -> _playerState) <$> _players newGame
-        playerStates `shouldBe` [In, SatOut]
+        playerStates `shouldBe` [SatIn NotFolded, SatOut]

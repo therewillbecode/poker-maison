@@ -19,12 +19,12 @@ import Poker.Game.Utils
     modInc,
   )
 import Poker.Types
-  ( ActiveState (..),
-    Blind (..),
+  ( Blind (..),
     Game (..),
     Player (..),
     PlayerName,
     PlayerState (..),
+    SatInState (..),
     Street (PreDeal),
     players,
   )

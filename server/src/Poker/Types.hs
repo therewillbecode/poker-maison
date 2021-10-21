@@ -102,11 +102,19 @@ data Street
   | Showdown
   deriving (Eq, Ord, Show, Read, Bounded, Enum, Generic, ToJSON, FromJSON)
 
-data ActiveState = Folded | NotFolded deriving (Eq, Show, Ord, Enum, Bounded, Read, Generic, ToJSON, FromJSON)
+-- better
+--data InHand = AllIn | NotAllIn
+--data SatInState = Folded | In InHand deriving (Eq, Show, Ord, Read, Generic, ToJSON, FromJSON)
+-- then use GADTs for game
+-- -> Two Active Players to start game
+-- 3 cards to progress game to flop
+
+data SatInState = Folded | NotFolded deriving (Eq, Show, Ord, Enum, Bounded, Read, Generic, ToJSON, FromJSON)
 
 -- SatOut denotes a player that will not be dealt cards unless they send a postblinds action to the server
 --  | Folded
-data PlayerState = SatOut | SatIn ActiveState deriving (Eq, Show, Ord, Read, Generic, ToJSON, FromJSON)
+data PlayerState = SatOut | SatIn SatInState
+  deriving (Eq, Show, Ord, Read, Generic, ToJSON, FromJSON)
 
 data Player = Player
   { _pockets :: Maybe PocketCards,

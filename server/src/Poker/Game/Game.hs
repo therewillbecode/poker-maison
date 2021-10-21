@@ -28,8 +28,7 @@ import Poker.Game.Utils
     modInc,
   )
 import Poker.Types
-  ( ActiveState (..),
-    Blind (NoBlind),
+  ( Blind (NoBlind),
     Card,
     Deck (..),
     Game (..),
@@ -39,6 +38,7 @@ import Poker.Types
     PlayerShowdownHand (..),
     PlayerState (..),
     PocketCards (..),
+    SatInState (..),
     Street (..),
     Winners (..),
     actedThisTurn,
