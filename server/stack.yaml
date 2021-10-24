@@ -41,7 +41,7 @@ extra-deps:
 
 
 nix:
-  enable: true
+  enable: false
   pure: false
   packages: [ postgresql zlib ]
 

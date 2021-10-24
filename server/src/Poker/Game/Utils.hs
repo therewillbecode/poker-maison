@@ -5,30 +5,13 @@
 module Poker.Game.Utils where
 
 import Control.Lens ((^.))
+import Data.Bool (bool)
 import Data.Foldable (find)
 import Data.List (elemIndex, find)
 import Data.Map.Lazy (Map)
 import qualified Data.Map.Lazy as M
 import Data.Text (Text)
 import Poker.Types
-  ( ActionTaken (..),
-    CanAct (..),
-    Card (Card),
-    Deck (..),
-    Game (..),
-    InPlayerState (..),
-    Player (..),
-    PlayerName,
-    PlayerState (..),
-    Street (PreDeal),
-    canAct,
-    playerName,
-    playerState,
-    players,
-    street,
-    unChips,
-    unDeck,
-  )
 import System.Random (Random (randomR), RandomGen)
 
 -- | A standard deck of cards.
@@ -79,7 +62,7 @@ modDec num modulo
 -- whereas sat in means that the player has at the very least had some historical participation
 -- in the current hand
 getActivePlayers :: [Player] -> [Player]
-getActivePlayers = filter ((==) CanAct . canAct)
+getActivePlayers = filter ((==) PlayerCanAct . canAct . _playerStatus)
 
 filterPlayersWithLtChips :: Int -> [Player] -> [Player]
 filterPlayersWithLtChips count =
@@ -89,17 +72,56 @@ filterPlayersWithLtChips count =
     )
 
 filterSatOutPlayers :: [Player] -> [Player]
-filterSatOutPlayers = filter (\Player {..} -> _playerState /= SatOut)
+filterSatOutPlayers = filter (\Player {..} -> _playerStatus /= SatOut)
 
 countActive :: [Player] -> Int
 countActive = length . getActivePlayers
 
+--actedThisTurn :: PlayerStatus -> HasActedThisStreet
+--actedThisTurn (InHand (CanAct mbLastAction)) = isJust mbLastAction
+
+canAct :: PlayerStatus -> CanPlayerAct
+canAct (InHand (CanAct _)) = PlayerCanAct
+canAct _ = PlayerCannotAct
+
+canPlayersAct :: Functor f => f Player -> f CanPlayerAct
+canPlayersAct ps = canAct . _playerStatus <$> ps
+
+canAnyPlayerAct :: [Player] -> Bool
+canAnyPlayerAct = elem PlayerCanAct . canPlayersAct
+
+bettingActionStatus :: [Player] -> BettingAction
+bettingActionStatus ps
+  | allButOneFolded ps = EveryoneFolded
+  | playersNotAllIn ps == 1 = EveryoneAllIn
+  | canAnyPlayerAct ps = AwaitingPlayerAction
+  | not (canAnyPlayerAct ps) = NotAwaitingPlayerAction
+  | otherwise = error "undhandled guard"
+
+allButOneAllIn :: [Player] -> Bool
+allButOneAllIn = (== 1) . playersNotAllIn
+
+playersNotAllIn :: [Player] -> Int
+playersNotAllIn ps
+  | numPlayersIn < 2 = 0
+  | otherwise = numPlayersIn - numPlayersAllIn
+  where
+    numPlayersIn = length $ getActivePlayers ps
+    numPlayersAllIn =
+      length $ filter (\Player {..} -> _playerStatus == InHand AllIn) ps
+
+-- The game should go straight to showdown if all but one players is In hand
+allButOneFolded :: [Player] -> Bool
+allButOneFolded ps = length playersInHand <= 1
+  where
+    playersInHand = filter ((== InHand Folded) . (^. playerStatus)) ps
+
 -- get all players who are not currently sat out
 getPlayersSatIn :: [Player] -> [Player]
-getPlayersSatIn = filter ((/= SatOut) . (^. playerState))
+getPlayersSatIn = filter ((/= SatOut) . (^. playerStatus))
 
 -- player position is the order of a given player in the set of all players with a
--- playerState of In or in other words the players that are both sat at the table and active
+-- playerStatus of In or in other words the players that are both sat at the table and active
 -- return Nothing if the given playerName is not sat at table
 getPlayerPosition :: [PlayerName] -> PlayerName -> Maybe Int
 getPlayerPosition playersSatIn playerName = playerName `elemIndex` playersSatIn
@@ -117,10 +139,10 @@ getGamePlayer :: Game -> PlayerName -> Maybe Player
 getGamePlayer game playerName =
   find (\Player {..} -> _playerName == playerName) $ _players game
 
-getGamePlayerState :: Game -> PlayerName -> Maybe PlayerState
+getGamePlayerState :: Game -> PlayerName -> Maybe PlayerStatus
 getGamePlayerState game playerName = do
   Player {..} <- getGamePlayer game playerName
-  return _playerState
+  return _playerStatus
 
 getGamePlayerNames :: Game -> [Text]
 getGamePlayerNames game = _playerName <$> _players game

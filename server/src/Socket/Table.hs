@@ -1,5 +1,5 @@
-{-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RecordWildCards #-}
 
 module Socket.Table where
 
@@ -77,29 +77,15 @@ import Pipes.Core (push)
 import Pipes.Parse (yield)
 import qualified Pipes.Prelude as P
 import Poker.ActionValidation (validateAction)
-import Poker.Game.Game (countPlayersNotAllIn, doesPlayerHaveToAct, initPlayer)
+import Poker.Game.Game (doesPlayerHaveToAct, initPlayer)
 import Poker.Game.Privacy (excludeOtherPlayerCards)
 import Poker.Game.Utils
-  ( getActivePlayers,
-    getGamePlayer,
-    getGamePlayerNames,
-    shuffledDeck,
-  )
 import Poker.Poker
   ( canProgressGame,
     progressGame,
     runPlayerAction,
   )
 import Poker.Types
-  ( Action (Bet, Call, Check, Fold, PostBlind, Raise, SitDown, Timeout),
-    Blind (Big, Small),
-    Game (..),
-    Player (..),
-    PlayerAction (PlayerAction, action, name),
-    PlayerName,
-    Street (PreDeal, Showdown),
-    chips,
-  )
 import Schema (Key, TableEntity)
 import Socket.Types
   ( Client (..),
@@ -131,10 +117,12 @@ setUpTablePipes connStr s name Table {..} = do
           name
           gameOutMailbox
           gameInMailbox
-  --threadDelay (7 * 1000000) -- delay so can see whats going on
   where
---    botPipes botNames = mapM_ (runBot gameInMailbox gameOutMailbox) botNames
+    --threadDelay (7 * 1000000) -- delay so can see whats going on
+
+    --    botPipes botNames = mapM_ (runBot gameInMailbox gameOutMailbox) botNames
     notFoundErr = error $ "Table " <> show name <> " doesn't exist in DB"
+
 {-
 runBot ::
   Output Game -> -- bots progress game with action and then push new game state here
@@ -177,11 +165,11 @@ getValidBotActions g@Game {..} name = do
     --when (null validActions) panic
     --randIx <- randomRIO (0, length validActions - 1)
     --return $ Just $ PlayerAction {action = validActions !! randIx, ..}
-    actions :: Street -> Int -> [Action]
+    actions :: Street -> Chips -> [Action]
     actions st chips
-      | st == PreDeal = [PostBlind Big, PostBlind Small, SitDown (initPlayer name 1500)]
+      | st == PreDeal = [PostBlind BigBlind, PostBlind SmallBlind, SitDown (initPlayer name 1500)]
       | otherwise = [Check, Call, Fold, Bet chips, Raise chips]
-    lowerBetBound = if _maxBet > 0 then 2 * _maxBet else _bigBlind
+    lowerBetBound = if _maxBet > 0 then 2 * _maxBet else Chips _bigBlind
     chipCount = maybe 0 (^. chips) (getGamePlayer g name)
 
 -- this is the pipeline of effects we run everytime a new game state
@@ -257,7 +245,7 @@ nextStagePause = do
       | _street == Showdown =
         5 * 1000000
       | -- 4 seconds
-        countPlayersNotAllIn g <= 1 =
+        playersNotAllIn _players <= 1 =
         5 * 1000000 -- everyone all in
       | otherwise = 2 * 1000000 -- 1 seconds
 

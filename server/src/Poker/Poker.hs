@@ -38,23 +38,7 @@ import Poker.Game.Blinds
   )
 import Poker.Game.Game
 import Poker.Game.Utils
-  ( getActivePlayers,
-    getGamePlayer,
-    shuffledDeck,
-  )
 import Poker.Types
-  ( Action (..),
-    Blind (Big, NoBlind, Small),
-    Deck,
-    Game (..),
-    GameErr,
-    Player (..),
-    PlayerAction (..),
-    PlayerName,
-    Street (..),
-    Winners (NoWinners),
-    chips,
-  )
 import System.Random (RandomGen)
 import Text.Pretty.Simple (pPrint)
 
@@ -93,7 +77,7 @@ nextStage gen game@Game {..}
   | notEnoughPlayersToStartGame =
     nextHand
   | haveAllPlayersActed game
-      && ( not (allButOneFolded game)
+      && ( not (allButOneFolded _players)
              || (_street == PreDeal || _street == Showdown)
          ) =
     case getNextStreet _street of
@@ -103,7 +87,7 @@ nextStage gen game@Game {..}
       River -> progressToRiver game
       Showdown -> progressToShowdown game
       PreDeal -> nextHand
-  | allButOneFolded game && _street /= Showdown =
+  | allButOneFolded _players && _street /= Showdown =
     progressToShowdown game
   | otherwise =
     game
@@ -119,9 +103,9 @@ handlePlayerAction game@Game {..} PlayerAction {..} = case action of
     validateAction game name action $> postBlind blind name game
   Fold -> validateAction game name action $> foldCards name game
   Call -> validateAction game name action $> call name game
-  Raise amount -> validateAction game name action $> makeBet amount name game
+  Raise amount -> validateAction game name action $> makeBet False amount name game
   Check -> validateAction game name action $> check name game
-  Bet amount -> validateAction game name action $> makeBet amount name game
+  Bet amount -> validateAction game name action $> makeBet False amount name game
   SitDown player -> validateAction game name action $> seatPlayer player game
   SitIn -> validateAction game name action $> sitIn name game
   LeaveSeat' -> validateAction game name action $> leaveSeat name game
@@ -186,19 +170,19 @@ getValidPlayerActions g@Game {..} name
     []
   | _street == PreDeal =
     case blindRequiredByPlayer g name of
-      Small -> [PostBlind Small]
-      Big -> [PostBlind Big]
-      NoBlind -> []
+      Just SmallBlind -> [PostBlind SmallBlind]
+      Just BigBlind -> [PostBlind BigBlind]
+      Nothing -> []
   | otherwise =
     let minRaise = 2 * _maxBet
-        possibleActions = actions _street chipCount
+        possibleActions = actions _street $ unChips chipCount
      in filter (isRight . validateAction g name) possibleActions
   where
     actions :: Street -> Int -> [Action]
     actions st chips
-      | st == PreDeal = [PostBlind Big, PostBlind Small]
-      | otherwise = [Check, Call, Fold, Bet chips, Raise chips]
-    lowerBetBound = if _maxBet > 0 then 2 * _maxBet else _bigBlind
+      | st == PreDeal = [PostBlind BigBlind, PostBlind SmallBlind]
+      | otherwise = [Check, Call, Fold, Bet $ Chips chips, Raise $ Chips chips]
+    lowerBetBound = if _maxBet > 0 then 2 * _maxBet else Chips _bigBlind
     chipCount = maybe 0 (^. chips) (getGamePlayer g name)
     panic = do
       error "no valid actions"

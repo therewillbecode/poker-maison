@@ -27,7 +27,7 @@ import Data.Text (Text)
 import Pipes.Concurrent (atomically, newest, spawn)
 import Poker.Game.Utils (shuffledDeck)
 import Poker.Poker (initPlayer, initialGameState)
-import Poker.Types (Game (..))
+import Poker.Types (Game (..), unChips)
 import Socket.Types
   ( Lobby (..),
     Table (..),
@@ -81,6 +81,8 @@ summariseGame tableName Table {game = Game {..}, ..} =
     { _tableName = tableName,
       _playerCount = length _players,
       _waitlistCount = length _waitlist,
+      _minBuyInChips = unChips _minBuyInChips,
+      _maxBuyInChips = unChips _maxBuyInChips,
       ..
     }
 

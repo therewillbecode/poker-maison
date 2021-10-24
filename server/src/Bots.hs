@@ -57,6 +57,7 @@ import Data.Foldable (Foldable (length, null), mapM_)
 import Data.Functor ((<$>))
 import Data.Map.Lazy (Map)
 import qualified Data.Map.Lazy as M
+import Data.Maybe
 import Data.Maybe (Maybe (..), maybe)
 import Data.Monoid ((<>))
 import Data.Text (Text)
@@ -73,15 +74,6 @@ import Poker.Game.Game (doesPlayerHaveToAct, initPlayer)
 import Poker.Game.Utils (getGamePlayer)
 import Poker.Poker (initPlayer, runPlayerAction)
 import Poker.Types
-  ( Action (Bet, Call, Check, Fold, PostBlind, Raise, SitDown),
-    Blind (Big, NoBlind, Small),
-    Game (..),
-    Player (..),
-    PlayerAction (..),
-    PlayerName,
-    Street (PreDeal),
-    chips,
-  )
 import Socket.Table (toGameInMailbox, updateTable')
 import Socket.Types
   ( Err (GameErr),
@@ -168,7 +160,7 @@ botActionLoop dbConn s gameOutMailbox playersToWaitFor botName = forkIO $
       _street == PreDeal && (length _players >= playersToWaitFor)
     actIfNeeded g' pName' =
       let hasToAct = doesPlayerHaveToAct pName' g'
-       in when (hasToAct || (blindRequiredByPlayer g' pName' /= NoBlind)) $ do
+       in when (hasToAct || (isJust $ blindRequiredByPlayer g' pName')) $ do
             print hasToAct
             runBotAction dbConn s g' pName'
 
@@ -214,12 +206,12 @@ getValidBotAction :: Game -> PlayerName -> IO (Maybe PlayerAction)
 getValidBotAction g@Game {..} name
   | length _players < 2 = return Nothing
   | _street == PreDeal = return $ case blindRequiredByPlayer g name of
-    Small -> Just $ PlayerAction {action = PostBlind Small, ..}
-    Big -> Just $ PlayerAction {action = PostBlind Big, ..}
-    NoBlind -> Nothing
+    Just SmallBlind -> Just $ PlayerAction {action = PostBlind SmallBlind, ..}
+    Just BigBlind -> Just $ PlayerAction {action = PostBlind BigBlind, ..}
+    Nothing -> Nothing
   | otherwise = do
     betAmount' <- randomRIO (lowerBetBound, chipCount)
-    let possibleActions = actions _street betAmount'
+    let possibleActions = actions _street $ unChips betAmount'
     let actionsValidated = validateAction g name <$> possibleActions
     let pNameActionPairs = zip possibleActions actionsValidated
     print pNameActionPairs
@@ -231,9 +223,9 @@ getValidBotAction g@Game {..} name
   where
     actions :: Street -> Int -> [Action]
     actions st chips
-      | st == PreDeal = [PostBlind Big, PostBlind Small]
-      | otherwise = [Check, Call, Fold, Bet chips, Raise chips]
-    lowerBetBound = if (_maxBet > 0) then 2 * _maxBet else _bigBlind
+      | st == PreDeal = [PostBlind BigBlind, PostBlind SmallBlind]
+      | otherwise = [Check, Call, Fold, Bet $ Chips chips, Raise $ Chips chips]
+    lowerBetBound = if (_maxBet > 0) then 2 * _maxBet else Chips _bigBlind
     chipCount = maybe 0 (^. chips) (getGamePlayer g name)
     panic = do
       print $ "UHOH no valid actions for " <> show name

@@ -14,47 +14,69 @@ import Data.Maybe (fromJust)
 import Poker.Game.Blinds (getPosNextBlind)
 import Poker.Game.Game (nextPosToAct)
 import Poker.Types
-  ( Blind (Small),
-    Game (..),
-    Player (..),
-    PlayerName,
-    PlayerState (..),
-    SatInState (..),
-    actedThisTurn,
-    bet,
-    chips,
-    committed,
-    currentPosToAct,
-    maxBet,
-    playerName,
-    playerState,
-    players,
-    pot,
-    waitlist,
-  )
 import Text.Read (readMaybe)
 import Prelude
 
+-- separately enforce this validation rule has enough chips
+--   hasEnoughChips = unChips chips' > betSize
+--      betAmount = bool (unChips chips') betSize hasEnoughChips
+
+makeBet :: Bool -> Chips -> PlayerName -> Game -> Game
+makeBet isCall betSize pName game@Game {..} =
+  updateMaxBet betSize game
+    & (players %~ placePlayerBet)
+      . (currentPosToAct %~ nextPosToAct _players)
+      . (pot +~ betSize)
+  where
+    placePlayerBet = (<$>) $
+      \p@Player {..} ->
+        if _playerName == pName
+          then placeBet isCall betSize p
+          else p
+
 -- Update table maxBet and pot as well as player state and chip count
-placeBet :: Int -> Player -> Player
-placeBet value plyr =
+placeBet :: Bool -> Chips -> Player -> Player
+placeBet isCall betSize plyr =
   let chips' = plyr ^. chips
-      hasEnoughChips = chips' > value
-      betAmount = bool chips' value hasEnoughChips
    in plyr
-        & (chips -~ betAmount)
-          . (bet +~ betAmount)
-          . (committed +~ betAmount)
-          . (playerState .~ SatIn NotFolded)
+        & (chips -~ betSize)
+          . (bet <>~ betSize)
+          . (committed <>~ CommittedChips (unChips betSize))
+          . ( playerStatus
+                %~ nextPlayerStatus
+                  chips'
+                  (bool Call (Bet betSize) isCall)
+            )
 
-markActed :: Player -> Player
-markActed = actedThisTurn .~ True
+nextPlayerStatus :: Chips -> Action -> PlayerStatus -> PlayerStatus
+nextPlayerStatus (Chips 0) _ _ = InHand AllIn
+nextPlayerStatus _ Fold _ = InHand Folded
+nextPlayerStatus _ Check playerStatus =
+  InHand $ CanAct $ pure Checked
+nextPlayerStatus _ Call playerStatus =
+  InHand $ CanAct $ pure $ MadeBet HasCalled
+nextPlayerStatus _ (Bet size) playerStatus =
+  InHand $ CanAct $ pure $ MadeBet $ HasBet size
+nextPlayerStatus _ (Raise size) playerStatus =
+  InHand $ CanAct $ pure $ MadeBet $ HasRaised size
+nextPlayerStatus _ (PostBlind blind) playerStatus =
+  SatIn HasPlayedLastHand $ PostedBlind blind
+nextPlayerStatus _ SitIn playerStatus =
+  SatIn HasPlayedLastHand NotPostedBlind
+nextPlayerStatus _ Timeout playerStatus = playerStatus
+nextPlayerStatus _ SitOut playerStatus = SatOut
+nextPlayerStatus _ _ playerStatus = playerStatus
 
-updateMaxBet :: Int -> Game -> Game
+--
+--markActed :: Action -> Player -> Player
+--markActed action p@Player {..} =
+--  p & (playerStatus %~ newPlayerStatus _chips action)
+
+updateMaxBet :: Chips -> Game -> Game
 updateMaxBet amount = maxBet %~ max amount
 
 markInForHand :: Player -> Player
-markInForHand = playerState .~ SatIn NotFolded
+markInForHand = playerStatus .~ InHand (CanAct Nothing)
 
 -- Will increment the game's current position to act to the next position
 -- where a blind is required. Skipping players that do not have to post blinds
@@ -64,53 +86,39 @@ markInForHand = playerState .~ SatIn NotFolded
 --   2. Post a blind.
 postBlind :: Blind -> PlayerName -> Game -> Game
 postBlind blind pName game@Game {..} =
-  game
-    & (players %~ markActedAndPlaceBet pName blindValue)
-      . (pot +~ blindValue)
-      . (currentPosToAct .~ pure nextRequiredBlindPos)
-      . (maxBet .~ newMaxBet)
+  -- hack because I dont know lens
+  let game' = makeBet False (Chips blindValue) pName game
+   in game'
+        & (pot +~ Chips blindValue)
+          . (currentPosToAct .~ pure nextRequiredBlindPos)
+          . (maxBet .~ newMaxBet)
   where
     isFirstBlind = sum ((\Player {..} -> _bet) <$> _players) == 0
     gamePlayerNames = (\Player {..} -> _playerName) <$> _players
-    blindValue = if blind == Small then _smallBlind else _bigBlind
-    newMaxBet = if blindValue > _maxBet then blindValue else _maxBet
+    blindValue = if blind == SmallBlind then _smallBlind else _bigBlind
+    newMaxBet = Chips $ if blindValue > unChips _maxBet then blindValue else unChips _maxBet
     positionOfBlindPoster = fromJust $ findIndex ((== pName) . (^. playerName)) _players
     nextRequiredBlindPos = getPosNextBlind positionOfBlindPoster game
 
-makeBet :: Int -> PlayerName -> Game -> Game
-makeBet bet pName game@Game {..} =
-  updateMaxBet bet game
-    & (players %~ markActedAndPlaceBet pName bet)
-      . (currentPosToAct .~ nextPosToAct game)
-      . (pot +~ bet)
-
-markActedAndPlaceBet :: Functor f => PlayerName -> Int -> f Player -> f Player
-markActedAndPlaceBet pName bet =
-  (<$>)
-    ( \p@Player {..} ->
-        if _playerName == pName
-          then (markInForHand . markActed . placeBet bet) p
-          else p
-    )
-
 foldCards :: PlayerName -> Game -> Game
 foldCards pName game@Game {..} =
-  game & (players .~ newPlayers) . (currentPosToAct .~ nextPosToAct game)
+  game & (players .~ newPlayers) . (currentPosToAct %~ nextPosToAct _players)
   where
     newPlayers =
       ( \p@Player {..} ->
           if _playerName == pName
-            then (markActed . (playerState .~ SatIn Folded)) p
+            then p & playerStatus %~ nextPlayerStatus _chips Fold
             else p
       )
         <$> _players
 
 call :: PlayerName -> Game -> Game
 call pName game@Game {..} =
-  game
-    & (players %~ markActedAndPlaceBet pName callAmount)
-      . (currentPosToAct .~ nextPosToAct game)
-      . (pot +~ callAmount)
+  -- hack because i dont know lens
+  let game' = makeBet True callAmount pName game
+   in game'
+        & (currentPosToAct %~ nextPosToAct _players)
+          . (pot +~ callAmount)
   where
     player = fromJust $ find (\Player {..} -> _playerName == pName) _players --horrible performance use map for players
     callAmount =
@@ -122,10 +130,14 @@ call pName game@Game {..} =
 
 check :: PlayerName -> Game -> Game
 check pName game@Game {..} =
-  game & (players .~ newPlayers) . (currentPosToAct .~ nextPosToAct game)
+  game & (players .~ newPlayers) . (currentPosToAct %~ nextPosToAct _players)
   where
     newPlayers =
-      (\p@Player {..} -> if _playerName == pName then markActed p else p)
+      ( \p@Player {..} ->
+          if _playerName == pName
+            then p & playerStatus %~ nextPlayerStatus _chips Check
+            else p
+      )
         <$> _players
 
 -- Sets state of a given player to SatOut (sat-out)
@@ -136,7 +148,7 @@ sitOut plyrName =
     %~ (<$>)
       ( \p@Player {..} ->
           if _playerName == plyrName
-            then Player {_playerState = SatOut, _actedThisTurn = True, ..}
+            then Player {_playerStatus = SatOut, ..}
             else p
       )
 
@@ -146,7 +158,12 @@ sitIn plyrName =
     %~ (<$>)
       ( \p@Player {..} ->
           if _playerName == plyrName
-            then Player {_playerState = SatIn NotFolded, _actedThisTurn = False, ..}
+            then
+              Player
+                { _playerStatus =
+                    SatIn HasNotPlayedLastHand NotPostedBlind,
+                  ..
+                }
             else p
       )
 

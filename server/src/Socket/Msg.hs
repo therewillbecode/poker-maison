@@ -38,21 +38,6 @@ import Poker.Game.Game (initPlayer)
 import Poker.Game.Utils (getGamePlayerNames)
 import Poker.Poker (initPlayer, runPlayerAction)
 import Poker.Types
-  ( Action (LeaveSeat', SitDown),
-    Game (..),
-    Player
-      ( Player,
-        _actedThisTurn,
-        _bet,
-        _chips,
-        _committed,
-        _playerName,
-        _playerState,
-        _pockets,
-        _possibleActions
-      ),
-    PlayerAction (..),
-  )
 import Schema
   ( UserEntity
       ( UserEntity,
@@ -199,7 +184,7 @@ leaveSeatHandler leaveSeatMove@(LeaveSeat tableName) = do
                     dbWithdrawChipsFromPlay
                       dbConn
                       (unUsername username)
-                      chipsInPlay
+                      (unChips chipsInPlay)
                   let msgOut = NewGameState tableName newGame
                   liftIO $
                     atomically $
@@ -212,7 +197,7 @@ leaveSeatHandler leaveSeatMove@(LeaveSeat tableName) = do
 canTakeSeat ::
   Int -> Text -> Table -> ReaderT MsgHandlerConfig IO (Either Err ())
 canTakeSeat chipsToSit tableName Table {game = Game {..}, ..}
-  | chipsToSit >= _minBuyInChips && chipsToSit <= _maxBuyInChips = do
+  | Chips chipsToSit >= _minBuyInChips && Chips chipsToSit <= _maxBuyInChips = do
     availableChipsE <- getPlayersAvailableChips
     MsgHandlerConfig {..} <- ask
     case availableChipsE of

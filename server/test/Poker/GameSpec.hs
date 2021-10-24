@@ -65,7 +65,7 @@ import Poker.Types
     dealer,
     deck,
     maxBet,
-    playerState,
+    playerStatus,
     players,
     pot,
     smallBlind,
@@ -95,7 +95,7 @@ player1 =
             Card {rank = Four, suit = Spades},
       _chips = 2000,
       _bet = 50,
-      _playerState = SatIn NotFolded,
+      _playerStatus = SatIn NotFolded,
       _playerName = "player1",
       _committed = 50,
       _actedThisTurn = True,
@@ -112,7 +112,7 @@ player2 =
             Card {rank = Four, suit = Hearts},
       _chips = 2000,
       _bet = 0,
-      _playerState = SatIn NotFolded,
+      _playerStatus = SatIn NotFolded,
       _playerName = "player2",
       _committed = 50,
       _actedThisTurn = False,
@@ -125,7 +125,7 @@ player3 =
     { _pockets = Nothing,
       _chips = 2000,
       _bet = 0,
-      _playerState = SatIn NotFolded,
+      _playerStatus = SatIn NotFolded,
       _playerName = "player3",
       _committed = 50,
       _actedThisTurn = False,
@@ -138,7 +138,7 @@ player4 =
     { _pockets = Nothing,
       _chips = 2000,
       _bet = 0,
-      _playerState = SatOut,
+      _playerStatus = SatOut,
       _playerName = "player4",
       _committed = 0,
       _actedThisTurn = False,
@@ -155,7 +155,7 @@ player5 =
             Card {rank = Four, suit = Spades},
       _chips = 2000,
       _bet = 50,
-      _playerState = SatIn NotFolded,
+      _playerStatus = SatIn NotFolded,
       _playerName = "player1",
       _committed = 50,
       _actedThisTurn = True,
@@ -168,7 +168,7 @@ player6 =
     { _pockets = Nothing,
       _chips = 2000,
       _bet = 0,
-      _playerState = SatOut,
+      _playerStatus = SatOut,
       _playerName = "player6",
       _committed = 0,
       _actedThisTurn = False,
@@ -200,7 +200,7 @@ turnGameThreePlyrs =
             { _pockets = Nothing,
               _chips = 2197,
               _bet = 0,
-              _playerState = SatIn NotFolded,
+              _playerStatus = SatIn NotFolded,
               _playerName = "player0",
               _committed = 50,
               _actedThisTurn = False,
@@ -210,7 +210,7 @@ turnGameThreePlyrs =
             { _pockets = Nothing,
               _chips = 1847,
               _bet = 0,
-              _playerState = SatIn NotFolded,
+              _playerStatus = SatIn NotFolded,
               _playerName = "player1",
               _committed = 250,
               _actedThisTurn = False,
@@ -220,7 +220,7 @@ turnGameThreePlyrs =
             { _pockets = Nothing,
               _chips = 2072,
               _bet = 0,
-              _playerState = SatIn NotFolded,
+              _playerStatus = SatIn NotFolded,
               _playerName = "player2",
               _committed = 250,
               _actedThisTurn = False,
@@ -235,7 +235,7 @@ spec = do
       let (_, newPlayers) = dealToPlayers initialDeck [player1, player3]
       all
         ( \Player {..} ->
-            if _playerState == SatIn NotFolded
+            if _playerStatus == SatIn NotFolded
               then isJust _pockets
               else isNothing _pockets
         )
@@ -249,15 +249,15 @@ spec = do
         let game =
               (street .~ PreDeal) . (maxBet .~ 0)
                 . ( players
-                      .~ [ ( (playerState .~ SatIn NotFolded) . (actedThisTurn .~ False) . (bet .~ 0)
+                      .~ [ ( (playerStatus .~ SatIn NotFolded) . (actedThisTurn .~ False) . (bet .~ 0)
                                . (committed .~ 0)
                            )
                              player1,
-                           ( (playerState .~ SatIn NotFolded) . (actedThisTurn .~ True) . (bet .~ 0)
+                           ( (playerStatus .~ SatIn NotFolded) . (actedThisTurn .~ True) . (bet .~ 0)
                                . (committed .~ 25)
                            )
                              player2,
-                           ( (playerState .~ SatIn NotFolded) . (actedThisTurn .~ True) . (bet .~ 0)
+                           ( (playerStatus .~ SatIn NotFolded) . (actedThisTurn .~ True) . (bet .~ 0)
                                . (committed .~ 50)
                            )
                              player6
@@ -280,9 +280,9 @@ spec = do
         let game =
               (street .~ PreFlop) . (maxBet .~ 0)
                 . ( players
-                      .~ [ ((playerState .~ SatIn NotFolded) . (actedThisTurn .~ True) . (bet .~ 0))
+                      .~ [ ((playerStatus .~ SatIn NotFolded) . (actedThisTurn .~ True) . (bet .~ 0))
                              player1,
-                           ((playerState .~ SatIn NotFolded) . (actedThisTurn .~ True) . (bet .~ 0))
+                           ((playerStatus .~ SatIn NotFolded) . (actedThisTurn .~ True) . (bet .~ 0))
                              player2
                          ]
                   )
@@ -301,7 +301,7 @@ spec = do
     it "should return True when all but one player " $ do
       let game =
             (street .~ PreFlop)
-              . (players .~ [(playerState .~ SatIn Folded) player1, player2])
+              . (players .~ [(playerStatus .~ SatIn Folded) player1, player2])
               $ initialGameState'
       allButOneFolded game `shouldBe` True
 
@@ -314,7 +314,7 @@ spec = do
     it "should always return False for PreDeal (blinds) stage" $ do
       let unfinishedBlindsGame =
             (street .~ PreDeal)
-              . (players .~ [(playerState .~ SatIn Folded) player1, player2])
+              . (players .~ [(playerStatus .~ SatIn Folded) player1, player2])
               $ initialGameState'
       allButOneFolded unfinishedBlindsGame `shouldBe` False
 
@@ -448,8 +448,8 @@ spec = do
       let preFlopGame' =
             (street .~ PreFlop) . (pot .~ 1000) . (deck .~ initialDeck)
               . ( players
-                    .~ [ ((playerState .~ SatIn NotFolded) . (actedThisTurn .~ False)) player1,
-                         ((playerState .~ SatIn NotFolded) . (actedThisTurn .~ True)) player3
+                    .~ [ ((playerStatus .~ SatIn NotFolded) . (actedThisTurn .~ False)) player1,
+                         ((playerStatus .~ SatIn NotFolded) . (actedThisTurn .~ True)) player3
                        ]
                 )
               $ initialGameState'
@@ -459,8 +459,8 @@ spec = do
       let preFlopGame' =
             (street .~ PreFlop) . (currentPosToAct ?~ 0) . (pot .~ 10) . (deck .~ initialDeck)
               . ( players
-                    .~ [ ((playerState .~ SatIn NotFolded) . (chips .~ 0) . (bet .~ 0) . (actedThisTurn .~ False)) player1,
-                         ((playerState .~ SatIn NotFolded) . (chips .~ 1) . (bet .~ 0) . (actedThisTurn .~ False)) player3
+                    .~ [ ((playerStatus .~ SatIn NotFolded) . (chips .~ 0) . (bet .~ 0) . (actedThisTurn .~ False)) player1,
+                         ((playerStatus .~ SatIn NotFolded) . (chips .~ 1) . (bet .~ 0) . (actedThisTurn .~ False)) player3
                        ]
                 )
               $ initialGameState'
@@ -473,12 +473,12 @@ spec = do
               (street .~ PreFlop) . (maxBet .~ 1950) . (pot .~ 4000)
                 . (deck .~ initialDeck)
                 . ( players
-                      .~ [ ( (actedThisTurn .~ True) . (playerState .~ SatIn NotFolded) . (bet .~ 1950)
+                      .~ [ ( (actedThisTurn .~ True) . (playerStatus .~ SatIn NotFolded) . (bet .~ 1950)
                                . (chips .~ 0)
                                . (committed .~ 2000)
                            )
                              player1,
-                           ( (playerState .~ SatIn NotFolded) . (actedThisTurn .~ True) . (bet .~ 1950)
+                           ( (playerStatus .~ SatIn NotFolded) . (actedThisTurn .~ True) . (bet .~ 1950)
                                . (committed .~ 2000)
                                . (chips .~ 3000)
                            )
@@ -495,12 +495,12 @@ spec = do
               (street .~ PreFlop) . (maxBet .~ 1950) . (pot .~ 4000)
                 . (deck .~ initialDeck)
                 . ( players
-                      .~ [ ( (actedThisTurn .~ True) . (playerState .~ SatIn NotFolded) . (bet .~ 1950)
+                      .~ [ ( (actedThisTurn .~ True) . (playerStatus .~ SatIn NotFolded) . (bet .~ 1950)
                                . (chips .~ 0)
                                . (committed .~ 2000)
                            )
                              player1,
-                           ( (playerState .~ SatIn Folded) . (actedThisTurn .~ True)
+                           ( (playerStatus .~ SatIn Folded) . (actedThisTurn .~ True)
                                . (bet .~ 1950)
                                . (committed .~ 2000)
                                . (chips .~ 3000)
@@ -518,17 +518,17 @@ spec = do
               (street .~ PreFlop) . (maxBet .~ 1950) . (pot .~ 1000)
                 . (deck .~ initialDeck)
                 . ( players
-                      .~ [ ( (actedThisTurn .~ True) . (playerState .~ SatIn NotFolded) . (bet .~ 1950)
+                      .~ [ ( (actedThisTurn .~ True) . (playerStatus .~ SatIn NotFolded) . (bet .~ 1950)
                                . (chips .~ 0)
                                . (committed .~ 2000)
                            )
                              player1,
-                           ( (playerState .~ SatIn NotFolded) . (actedThisTurn .~ True) . (bet .~ 1950)
+                           ( (playerStatus .~ SatIn NotFolded) . (actedThisTurn .~ True) . (bet .~ 1950)
                                . (committed .~ 2000)
                                . (chips .~ 3000)
                            )
                              player3,
-                           ( (playerState .~ SatIn NotFolded) . (actedThisTurn .~ True) . (bet .~ 1950)
+                           ( (playerStatus .~ SatIn NotFolded) . (actedThisTurn .~ True) . (bet .~ 1950)
                                . (committed .~ 2000)
                                . (chips .~ 3000)
                            )
@@ -543,22 +543,22 @@ spec = do
             (street .~ Flop) . (maxBet .~ 2000) . (pot .~ 10000)
               . (deck .~ initialDeck)
               . ( players
-                    .~ [ ( (actedThisTurn .~ True) . (playerState .~ SatIn NotFolded) . (bet .~ 0)
+                    .~ [ ( (actedThisTurn .~ True) . (playerStatus .~ SatIn NotFolded) . (bet .~ 0)
                              . (chips .~ 0)
                              . (committed .~ 2000)
                          )
                            player1,
-                         ( (actedThisTurn .~ True) . (playerState .~ SatIn NotFolded) . (bet .~ 2000)
+                         ( (actedThisTurn .~ True) . (playerStatus .~ SatIn NotFolded) . (bet .~ 2000)
                              . (committed .~ 4000)
                              . (chips .~ 0)
                          )
                            player3,
-                         ( (playerState .~ SatIn NotFolded) . (actedThisTurn .~ True) . (bet .~ 2000)
+                         ( (playerStatus .~ SatIn NotFolded) . (actedThisTurn .~ True) . (bet .~ 2000)
                              . (committed .~ 4000)
                              . (chips .~ 0)
                          )
                            player3,
-                         ( (playerState .~ SatIn NotFolded) . (actedThisTurn .~ False) . (bet .~ 0)
+                         ( (playerStatus .~ SatIn NotFolded) . (actedThisTurn .~ False) . (bet .~ 0)
                              . (committed .~ 2000)
                              . (chips .~ 800)
                          )
@@ -574,17 +574,17 @@ spec = do
             (street .~ Flop) . (maxBet .~ 2000) . (pot .~ 10000)
               . (deck .~ initialDeck)
               . ( players
-                    .~ [ ( (actedThisTurn .~ True) . (playerState .~ SatIn NotFolded) . (bet .~ 0)
+                    .~ [ ( (actedThisTurn .~ True) . (playerStatus .~ SatIn NotFolded) . (bet .~ 0)
                              . (chips .~ 0)
                              . (committed .~ 2000)
                          )
                            player1,
-                         ( (actedThisTurn .~ True) . (playerState .~ SatIn NotFolded) . (bet .~ 2000)
+                         ( (actedThisTurn .~ True) . (playerStatus .~ SatIn NotFolded) . (bet .~ 2000)
                              . (committed .~ 4000)
                              . (chips .~ 0)
                          )
                            player3,
-                         ( (playerState .~ SatIn NotFolded) . (actedThisTurn .~ True) . (bet .~ 2000)
+                         ( (playerStatus .~ SatIn NotFolded) . (actedThisTurn .~ True) . (bet .~ 2000)
                              . (committed .~ 4000)
                              . (chips .~ 0)
                          )
@@ -638,8 +638,8 @@ spec = do
             (street .~ Flop) . (dealer .~ 0)
               . ( players
                     .~ [ (chips .~ 1000) player5,
-                         (playerState .~ SatIn Folded) player4,
-                         (playerState .~ SatOut) player3,
+                         (playerStatus .~ SatIn Folded) player4,
+                         (playerStatus .~ SatOut) player3,
                          (chips .~ 1000) player2
                        ]
                 )
@@ -656,14 +656,14 @@ spec = do
                   . (currentPosToAct .~ Nothing)
                   . (dealer .~ 0)
                   . ( players
-                        .~ [ ( (actedThisTurn .~ False) . (playerState .~ SatOut)
+                        .~ [ ( (actedThisTurn .~ False) . (playerStatus .~ SatOut)
                                  . (bet .~ 0)
                                  . (chips .~ 2000)
                                  . (committed .~ 0)
                                  . (bet .~ 0)
                              )
                                player1,
-                             ( (actedThisTurn .~ False) . (playerState .~ SatOut)
+                             ( (actedThisTurn .~ False) . (playerStatus .~ SatOut)
                                  . (bet .~ 0)
                                  . (committed .~ 0)
                                  . (bet .~ 0)
@@ -682,13 +682,13 @@ spec = do
           let game' =
                 (street .~ PreDeal)
                   . ( players
-                        .~ [ ( (actedThisTurn .~ False) . (playerState .~ SatOut)
+                        .~ [ ( (actedThisTurn .~ False) . (playerStatus .~ SatOut)
                                  . (bet .~ 0)
                                  . (chips .~ 2000)
                                  . (committed .~ 0)
                              )
                                player1,
-                             ( (actedThisTurn .~ False) . (playerState .~ SatIn NotFolded) . (bet .~ 0)
+                             ( (actedThisTurn .~ False) . (playerStatus .~ SatIn NotFolded) . (bet .~ 0)
                                  . (committed .~ 0)
                                  . (chips .~ 2000)
                              )
@@ -710,12 +710,12 @@ spec = do
                     . (currentPosToAct ?~ 1)
                     . (dealer .~ 0)
                     . ( players
-                          .~ [ ( (actedThisTurn .~ False) . (playerState .~ SatIn NotFolded) . (bet .~ 0)
+                          .~ [ ( (actedThisTurn .~ False) . (playerStatus .~ SatIn NotFolded) . (bet .~ 0)
                                    . (chips .~ 2000)
                                    . (committed .~ 0)
                                )
                                  player1,
-                               ( (actedThisTurn .~ False) . (playerState .~ SatIn NotFolded) . (bet .~ 0)
+                               ( (actedThisTurn .~ False) . (playerStatus .~ SatIn NotFolded) . (bet .~ 0)
                                    . (committed .~ 0)
                                    . (chips .~ 2000)
                                )
@@ -738,12 +738,12 @@ spec = do
                   . (currentPosToAct ?~ 1)
                   . (dealer .~ 0)
                   . ( players
-                        .~ [ ( (actedThisTurn .~ True) . (playerState .~ SatIn NotFolded) . (bet .~ 0)
+                        .~ [ ( (actedThisTurn .~ True) . (playerStatus .~ SatIn NotFolded) . (bet .~ 0)
                                  . (chips .~ 2000)
                                  . (committed .~ 25)
                              )
                                player1,
-                             ( (actedThisTurn .~ False) . (playerState .~ SatIn NotFolded) . (bet .~ 0)
+                             ( (actedThisTurn .~ False) . (playerStatus .~ SatIn NotFolded) . (bet .~ 0)
                                  . (committed .~ 0)
                                  . (chips .~ 1950)
                              )
@@ -770,13 +770,13 @@ spec = do
                     . (currentPosToAct ?~ 1)
                     . (dealer .~ 1)
                     . ( players
-                          .~ [ ( (actedThisTurn .~ False) . (playerState .~ SatIn NotFolded)
+                          .~ [ ( (actedThisTurn .~ False) . (playerStatus .~ SatIn NotFolded)
                                    . (bet .~ 50)
                                    . (committed .~ 50)
                                    . (chips .~ 1950)
                                )
                                  player1,
-                               ( (actedThisTurn .~ False) . (playerState .~ SatIn NotFolded)
+                               ( (actedThisTurn .~ False) . (playerStatus .~ SatIn NotFolded)
                                    . (bet .~ 50)
                                    . (chips .~ 1975)
                                    . (committed .~ 50)
@@ -801,13 +801,13 @@ spec = do
                     . (currentPosToAct ?~ 1)
                     . (dealer .~ 1)
                     . ( players
-                          .~ [ ( (actedThisTurn .~ True) . (playerState .~ SatIn NotFolded)
+                          .~ [ ( (actedThisTurn .~ True) . (playerStatus .~ SatIn NotFolded)
                                    . (bet .~ 50)
                                    . (committed .~ 50)
                                    . (chips .~ 1950)
                                )
                                  player1,
-                               ( (actedThisTurn .~ False) . (playerState .~ SatIn NotFolded)
+                               ( (actedThisTurn .~ False) . (playerStatus .~ SatIn NotFolded)
                                    . (bet .~ 50)
                                    . (chips .~ 1975)
                                    . (committed .~ 50)
@@ -832,11 +832,11 @@ spec = do
                     . (currentPosToAct ?~ 0)
                     . (dealer .~ 1)
                     . ( players
-                          .~ [ ( (playerState .~ SatIn NotFolded) . (bet .~ 0) . (committed .~ 50)
+                          .~ [ ( (playerStatus .~ SatIn NotFolded) . (bet .~ 0) . (committed .~ 50)
                                    . (chips .~ 1950)
                                )
                                  player1,
-                               ( (actedThisTurn .~ True) . (playerState .~ SatIn NotFolded)
+                               ( (actedThisTurn .~ True) . (playerStatus .~ SatIn NotFolded)
                                    . (bet .~ 25)
                                    . (chips .~ 1950)
                                    . (committed .~ 50)
@@ -861,13 +861,13 @@ spec = do
                     . (currentPosToAct ?~ 1)
                     . (dealer .~ 0)
                     . ( players
-                          .~ [ ( (actedThisTurn .~ False) . (playerState .~ SatIn NotFolded)
+                          .~ [ ( (actedThisTurn .~ False) . (playerStatus .~ SatIn NotFolded)
                                    . (bet .~ 0)
                                    . (chips .~ 2000)
                                    . (committed .~ 50)
                                )
                                  player1,
-                               ( (actedThisTurn .~ False) . (playerState .~ SatIn NotFolded)
+                               ( (actedThisTurn .~ False) . (playerStatus .~ SatIn NotFolded)
                                    . (bet .~ 0)
                                    . (committed .~ 50)
                                    . (chips .~ 2000)
@@ -892,13 +892,13 @@ spec = do
                     . (currentPosToAct ?~ 0)
                     . (dealer .~ 0)
                     . ( players
-                          .~ [ ( (actedThisTurn .~ False) . (playerState .~ SatIn NotFolded)
+                          .~ [ ( (actedThisTurn .~ False) . (playerStatus .~ SatIn NotFolded)
                                    . (bet .~ 0)
                                    . (chips .~ 2000)
                                    . (committed .~ 50)
                                )
                                  player1,
-                               ( (actedThisTurn .~ True) . (playerState .~ SatIn NotFolded) . (bet .~ 0)
+                               ( (actedThisTurn .~ True) . (playerStatus .~ SatIn NotFolded) . (bet .~ 0)
                                    . (committed .~ 50)
                                    . (chips .~ 2000)
                                )
@@ -921,7 +921,7 @@ spec = do
             { _pockets = Nothing,
               _chips = 2000,
               _bet = 0,
-              _playerState = SatIn NotFolded,
+              _playerStatus = SatIn NotFolded,
               _playerName = "player1",
               _committed = 100,
               _actedThisTurn = True,
@@ -933,7 +933,7 @@ spec = do
             { _pockets = Nothing,
               _chips = 2000,
               _bet = 0,
-              _playerState = SatIn Folded,
+              _playerStatus = SatIn Folded,
               _playerName = "player2",
               _committed = 50,
               _actedThisTurn = False,
@@ -945,7 +945,7 @@ spec = do
             { _pockets = Nothing,
               _chips = 2000,
               _bet = 0,
-              _playerState = SatIn NotFolded,
+              _playerStatus = SatIn NotFolded,
               _playerName = "player3",
               _committed = 50,
               _actedThisTurn = False,
@@ -957,7 +957,7 @@ spec = do
             { _pockets = Nothing,
               _chips = 2000,
               _bet = 0,
-              _playerState = SatIn NotFolded,
+              _playerStatus = SatIn NotFolded,
               _playerName = "player3",
               _committed = 0,
               _actedThisTurn = False,
@@ -969,7 +969,7 @@ spec = do
             { _pockets = Nothing,
               _chips = 4000,
               _bet = 4000,
-              _playerState = SatIn NotFolded,
+              _playerStatus = SatIn NotFolded,
               _playerName = "player5",
               _committed = 4000,
               _actedThisTurn = True,
@@ -1028,7 +1028,7 @@ spec = do
                       { _pockets = Nothing,
                         _chips = 2300,
                         _bet = 50,
-                        _playerState = SatIn NotFolded,
+                        _playerStatus = SatIn NotFolded,
                         _playerName = "player0",
                         _committed = 50,
                         _actedThisTurn = True,
@@ -1038,7 +1038,7 @@ spec = do
                       { _pockets = Nothing,
                         _chips = 1700,
                         _bet = 50,
-                        _playerState = SatIn NotFolded,
+                        _playerStatus = SatIn NotFolded,
                         _playerName = "player1",
                         _committed = 50,
                         _actedThisTurn = True,
@@ -1048,7 +1048,7 @@ spec = do
                       { _pockets = Nothing,
                         _chips = 2122,
                         _bet = 0,
-                        _playerState = SatIn Folded,
+                        _playerStatus = SatIn Folded,
                         _playerName = "player2",
                         _committed = 0,
                         _actedThisTurn = True,
@@ -1094,8 +1094,8 @@ spec = do
                       .~ [ player1,
                            player4,
                            player3,
-                           (playerState .~ SatIn NotFolded) player2,
-                           (playerState .~ SatIn NotFolded) player2
+                           (playerStatus .~ SatIn NotFolded) player2,
+                           (playerStatus .~ SatIn NotFolded) player2
                          ]
                   )
                 $ initialGameState'

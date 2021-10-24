@@ -28,7 +28,7 @@ import Poker.Generators (allPStates, allPStreets, genGame)
 import Poker.Poker (initialGameState)
 import Poker.Types
   ( Action (Check, Fold, LeaveSeat', PostBlind, SitOut, Timeout),
-    Blind (Big, Small),
+    Blind (BigBlind, SmallBlind),
     CurrentPlayerToActErr (CurrentPlayerToActErr),
     Deck (Deck),
     Game (..),
@@ -55,7 +55,7 @@ import Poker.Types
         _chips,
         _committed,
         _playerName,
-        _playerState,
+        _playerStatus,
         _pockets,
         _possibleActions
       ),
@@ -72,7 +72,7 @@ import Poker.Types
     dealer,
     deck,
     maxBet,
-    playerState,
+    playerStatus,
     players,
     pot,
     street,
@@ -98,7 +98,7 @@ player1 =
     { _pockets = Nothing,
       _chips = 2000,
       _bet = 200,
-      _playerState = SatIn NotFolded,
+      _playerStatus = SatIn NotFolded,
       _playerName = "player1",
       _committed = 250,
       _actedThisTurn = False,
@@ -111,7 +111,7 @@ player2 =
     { _pockets = Nothing,
       _chips = 2000,
       _bet = 0,
-      _playerState = SatIn Folded,
+      _playerStatus = SatIn Folded,
       _playerName = "player2",
       _committed = 50,
       _actedThisTurn = False,
@@ -124,7 +124,7 @@ player3 =
     { _pockets = Nothing,
       _chips = 300,
       _bet = 0,
-      _playerState = SatIn NotFolded,
+      _playerStatus = SatIn NotFolded,
       _playerName = "player3",
       _committed = 50,
       _actedThisTurn = False,
@@ -137,7 +137,7 @@ player4 =
     { _pockets = Nothing,
       _chips = 2000,
       _bet = 0,
-      _playerState = SatOut,
+      _playerStatus = SatOut,
       _playerName = "player4",
       _committed = 0,
       _actedThisTurn = False,
@@ -150,7 +150,7 @@ player5 =
     { _pockets = Nothing,
       _chips = 2000,
       _bet = 0,
-      _playerState = SatIn NotFolded,
+      _playerStatus = SatIn NotFolded,
       _playerName = "player5",
       _committed = 50,
       _actedThisTurn = False,
@@ -185,7 +185,7 @@ callAllInHeadsUpFixture =
             { _pockets = Nothing,
               _chips = 3500,
               _bet = 0,
-              _playerState = SatIn NotFolded,
+              _playerStatus = SatIn NotFolded,
               _playerName = "player0",
               _committed = 50,
               _actedThisTurn = True,
@@ -195,7 +195,7 @@ callAllInHeadsUpFixture =
             { _pockets = Nothing,
               _chips = 0,
               _bet = 2400,
-              _playerState = SatIn NotFolded,
+              _playerStatus = SatIn NotFolded,
               _playerName = "player1",
               _committed = 2450,
               _actedThisTurn = True,
@@ -226,7 +226,7 @@ preDealHeadsUpFixture =
             { _pockets = Nothing,
               _chips = 3000,
               _bet = 0,
-              _playerState = SatIn NotFolded,
+              _playerStatus = SatIn NotFolded,
               _playerName = "player0",
               _committed = 0,
               _actedThisTurn = False,
@@ -236,7 +236,7 @@ preDealHeadsUpFixture =
             { _pockets = Nothing,
               _chips = 2950,
               _bet = 50,
-              _playerState = SatIn NotFolded,
+              _playerStatus = SatIn NotFolded,
               _playerName = "player1",
               _committed = 50,
               _actedThisTurn = True,
@@ -267,7 +267,7 @@ turnGameThreePlyrs =
             { _pockets = Nothing,
               _chips = 2197,
               _bet = 0,
-              _playerState = SatIn NotFolded,
+              _playerStatus = SatIn NotFolded,
               _playerName = "player0",
               _committed = 50,
               _actedThisTurn = False,
@@ -277,7 +277,7 @@ turnGameThreePlyrs =
             { _pockets = Nothing,
               _chips = 1847,
               _bet = 0,
-              _playerState = SatIn NotFolded,
+              _playerStatus = SatIn NotFolded,
               _playerName = "player1",
               _committed = 250,
               _actedThisTurn = False,
@@ -287,7 +287,7 @@ turnGameThreePlyrs =
             { _pockets = Nothing,
               _chips = 2072,
               _bet = 0,
-              _playerState = SatIn NotFolded,
+              _playerStatus = SatIn NotFolded,
               _playerName = "player2",
               _committed = 250,
               _actedThisTurn = False,
@@ -320,13 +320,13 @@ spec = do
                 . (dealer .~ 0)
                 . (currentPosToAct ?~ 1)
                 . ( players
-                      .~ [ ( (playerState .~ SatIn NotFolded)
+                      .~ [ ( (playerStatus .~ SatIn NotFolded)
                                . (actedThisTurn .~ False)
                                . (bet .~ 25)
                                . (committed .~ 25)
                            )
                              player1,
-                           ( (playerState .~ SatIn NotFolded)
+                           ( (playerStatus .~ SatIn NotFolded)
                                . (actedThisTurn .~ False)
                                . (bet .~ 50)
                                . (committed .~ 50)
@@ -342,13 +342,13 @@ spec = do
                 . (dealer .~ 1)
                 . (currentPosToAct ?~ 0)
                 . ( players
-                      .~ [ ( (playerState .~ SatIn NotFolded)
+                      .~ [ ( (playerStatus .~ SatIn NotFolded)
                                . (actedThisTurn .~ False)
                                . (bet .~ 50)
                                . (committed .~ 50)
                            )
                              player1,
-                           ( (playerState .~ SatIn NotFolded)
+                           ( (playerStatus .~ SatIn NotFolded)
                                . (actedThisTurn .~ True)
                                . (bet .~ 50)
                                . (committed .~ 50)
@@ -504,18 +504,18 @@ spec = do
         canCheck playerName game `shouldBe` expectedErr
 
     it
-      "should allow Big Blind player to check during PreFlop when no bets or raises have occurred"
+      "should allow BigBlind Blind player to check during PreFlop when no bets or raises have occurred"
       $ do
         let game =
               (street .~ PreFlop)
                 . ( players
-                      .~ [ ( (playerState .~ SatIn NotFolded)
+                      .~ [ ( (playerStatus .~ SatIn NotFolded)
                                . (actedThisTurn .~ True)
                                . (bet .~ 50)
                                . (committed .~ 50)
                            )
                              player1,
-                           ( (playerState .~ SatIn NotFolded)
+                           ( (playerStatus .~ SatIn NotFolded)
                                . (actedThisTurn .~ False)
                                . (bet .~ 50)
                                . (committed .~ 50)
@@ -634,8 +634,8 @@ spec = do
                     .~ MultiPlayerShowdown [((Pair, PlayerShowdownHand []), "player4")]
                 )
               . ( players
-                    .~ [ ((playerState .~ SatIn NotFolded) . (actedThisTurn .~ True)) player4,
-                         ((playerState .~ SatIn NotFolded) . (actedThisTurn .~ True)) player5
+                    .~ [ ((playerStatus .~ SatIn NotFolded) . (actedThisTurn .~ True)) player4,
+                         ((playerStatus .~ SatIn NotFolded) . (actedThisTurn .~ True)) player5
                        ]
                 )
               $ initialGameState'
@@ -656,8 +656,8 @@ spec = do
                 . (deck .~ initialDeck)
                 . (winners .~ SinglePlayerShowdown "player4")
                 . ( players
-                      .~ [ ((playerState .~ SatIn NotFolded) . (actedThisTurn .~ True)) player4,
-                           ((playerState .~ SatIn Folded) . (actedThisTurn .~ True)) player5
+                      .~ [ ((playerStatus .~ SatIn NotFolded) . (actedThisTurn .~ True)) player4,
+                           ((playerStatus .~ SatIn Folded) . (actedThisTurn .~ True)) player5
                          ]
                   )
                 $ initialGameState'
@@ -677,8 +677,8 @@ spec = do
                 . (deck .~ initialDeck)
                 . (winners .~ SinglePlayerShowdown "player4")
                 . ( players
-                      .~ [ ((playerState .~ SatIn NotFolded) . (actedThisTurn .~ True)) player4,
-                           ((playerState .~ SatIn Folded) . (actedThisTurn .~ True)) player5
+                      .~ [ ((playerStatus .~ SatIn NotFolded) . (actedThisTurn .~ True)) player4,
+                           ((playerStatus .~ SatIn Folded) . (actedThisTurn .~ True)) player5
                          ]
                   )
                 $ initialGameState'
@@ -739,13 +739,13 @@ spec = do
         let preDealGame =
               (street .~ PreDeal)
                 . ( players
-                      .~ [ ( (playerState .~ SatIn NotFolded)
+                      .~ [ ( (playerStatus .~ SatIn NotFolded)
                                . (actedThisTurn .~ False)
                                . (bet .~ 0)
                                . (committed .~ 0)
                            )
                              player1,
-                           ( (playerState .~ SatIn NotFolded)
+                           ( (playerStatus .~ SatIn NotFolded)
                                . (actedThisTurn .~ False)
                                . (bet .~ 0)
                                . (committed .~ 0)
@@ -761,13 +761,13 @@ spec = do
       let preDealGame =
             (street .~ PreFlop)
               . ( players
-                    .~ [ ( (playerState .~ SatIn NotFolded)
+                    .~ [ ( (playerStatus .~ SatIn NotFolded)
                              . (actedThisTurn .~ True)
                              . (bet .~ 50)
                              . (committed .~ 50)
                          )
                            player1,
-                         ( (playerState .~ SatIn NotFolded)
+                         ( (playerStatus .~ SatIn NotFolded)
                              . (actedThisTurn .~ False)
                              . (bet .~ 50)
                              . (committed .~ 50)
@@ -784,13 +784,13 @@ spec = do
       let preDealGame =
             (street .~ PreDeal)
               . ( players
-                    .~ [ ( (playerState .~ SatOut)
+                    .~ [ ( (playerStatus .~ SatOut)
                              . (actedThisTurn .~ False)
                              . (bet .~ 0)
                              . (committed .~ 0)
                          )
                            player1,
-                         ( (playerState .~ SatIn NotFolded)
+                         ( (playerStatus .~ SatIn NotFolded)
                              . (actedThisTurn .~ False)
                              . (bet .~ 0)
                              . (committed .~ 0)
@@ -807,13 +807,13 @@ spec = do
       let preDealGame =
             (street .~ PreFlop)
               . ( players
-                    .~ [ ( (playerState .~ SatIn NotFolded)
+                    .~ [ ( (playerStatus .~ SatIn NotFolded)
                              . (actedThisTurn .~ True)
                              . (bet .~ 50)
                              . (committed .~ 50)
                          )
                            player1,
-                         ( (playerState .~ SatIn NotFolded)
+                         ( (playerStatus .~ SatIn NotFolded)
                              . (actedThisTurn .~ False)
                              . (bet .~ 50)
                              . (committed .~ 50)
@@ -837,14 +837,14 @@ spec = do
               . (dealer .~ 0)
               . ( players
                     .~ [ ( (actedThisTurn .~ False)
-                             . (playerState .~ SatIn NotFolded)
+                             . (playerStatus .~ SatIn NotFolded)
                              . (bet .~ 0)
                              . (chips .~ 2000)
                              . (committed .~ 0)
                          )
                            player1,
                          ( (actedThisTurn .~ False)
-                             . (playerState .~ SatIn NotFolded)
+                             . (playerStatus .~ SatIn NotFolded)
                              . (bet .~ 0)
                              . (committed .~ 0)
                              . (chips .~ 2000)
@@ -855,11 +855,11 @@ spec = do
               $ initialGameState'
 
       it "Player1 should require small blind" $
-        validateBlindAction game' (_playerName player1) Small
+        validateBlindAction game' (_playerName player1) SmallBlind
           `shouldBe` Right ()
 
       it "Player2 should require bigBlind" $
-        validateBlindAction game' (_playerName player2) Big `shouldBe` Right ()
+        validateBlindAction game' (_playerName player2) BigBlind `shouldBe` Right ()
 
   describe "canPostBlind" $
     describe "Heads Up Game" $ do
@@ -872,14 +872,14 @@ spec = do
               . (dealer .~ 0)
               . ( players
                     .~ [ ( (actedThisTurn .~ False)
-                             . (playerState .~ SatIn NotFolded)
+                             . (playerStatus .~ SatIn NotFolded)
                              . (bet .~ 0)
                              . (chips .~ 2000)
                              . (committed .~ 0)
                          )
                            player1,
                          ( (actedThisTurn .~ False)
-                             . (playerState .~ SatIn NotFolded)
+                             . (playerStatus .~ SatIn NotFolded)
                              . (bet .~ 0)
                              . (committed .~ 0)
                              . (chips .~ 2000)
@@ -889,34 +889,34 @@ spec = do
                 )
               $ initialGameState'
       it "Player1 should be able to post small blind" $
-        canPostBlind game' (_playerName player1) Small `shouldBe` Right ()
+        canPostBlind game' (_playerName player1) SmallBlind `shouldBe` Right ()
 
   describe "validateAction" $ do
     describe "postBlinds" $ do
       it "Player0 should be able to post small blind" $ do
-        let action' = PostBlind Small
+        let action' = PostBlind SmallBlind
         let pName = "player0"
         validateAction preDealHeadsUpFixture pName action' `shouldBe` Right ()
 
       it "Player0 should not be able post big blind" $ do
-        let action' = PostBlind Big
+        let action' = PostBlind BigBlind
         let pName = "player0"
         isLeft (validateAction preDealHeadsUpFixture pName action') `shouldBe` True
 
       it "Player1 should not be able post big blind when already posted big blind" $ do
-        let action' = PostBlind Big
+        let action' = PostBlind BigBlind
         let pName = "player1"
         isLeft (validateAction preDealHeadsUpFixture pName action') `shouldBe` True
 
       it "Player1 should not be able post small blind when already posted big blind" $ do
-        let action' = PostBlind Small
+        let action' = PostBlind SmallBlind
         let pName = "player1"
         isLeft (validateAction preDealHeadsUpFixture pName action') `shouldBe` True
 
       it "Players can't post a blind when they have no chips" $
         hedgehog $ do
           g <- forAll $ genGame [PreDeal] allPStates
-          blind' <- forAll $ Gen.element [Small, Big]
+          blind' <- forAll $ Gen.element [SmallBlind, BigBlind]
           let g' = g & players . element 0 %~ chips .~ 0
               action' = PostBlind blind'
               pName = "player0"
@@ -925,7 +925,7 @@ spec = do
     --    it "Players shouldn't be able to post blinds outside PreDeal" $
     --      hedgehog $ do
     --        g <- forAll $ genGame [PreFlop] [SatIn NotFolded, SatOut]
-    --        blind' <- forAll $ Gen.element [Small, Big]
+    --        blind' <- forAll $ Gen.element [SmallBlind, BigBlind]
     --        let action' = PostBlind blind'
     --            pName = "player1"
     --        isLeft (validateAction g pName action') === True

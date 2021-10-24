@@ -9,15 +9,6 @@ import Control.Lens ((%~), (&), (.~))
 import Data.Text (Text)
 import Poker.Game.Game (canPubliciseActivesCards)
 import Poker.Types
-  ( Deck (Deck),
-    Game,
-    Player (..),
-    PlayerName,
-    PlayerState (..),
-    SatInState (NotFolded),
-    deck,
-    players,
-  )
 
 -- For players that are sat in game
 excludeOtherPlayerCards :: PlayerName -> Game -> Game
@@ -43,7 +34,7 @@ excludeAllPlayerCards = excludePrivateCards Nothing
 -- or during the final showdown stage of the game
 --
 -- If they are
--- then all the pocket cards held by players whose _playerState
+-- then all the pocket cards held by players whose _playerStatus
 -- is set to In (active and) are public and therefore not removed.
 excludePrivateCards :: Maybe PlayerName -> Game -> Game
 excludePrivateCards maybePlayerName game =
@@ -59,13 +50,13 @@ excludePrivateCards maybePlayerName game =
 updatePocketCardsForSpectator :: Bool -> (Player -> Player)
 updatePocketCardsForSpectator showAllActivesCards
   | showAllActivesCards = \player@Player {..} ->
-    if _playerState == SatIn NotFolded then player else Player {_pockets = Nothing, ..}
+    if _playerStatus /= InHand Folded then player else Player {_pockets = Nothing, ..}
   | otherwise = \Player {..} -> Player {_pockets = Nothing, ..}
 
 updatePocketCardsForPlayer :: Bool -> PlayerName -> (Player -> Player)
 updatePocketCardsForPlayer showAllActivesCards playerName
   | showAllActivesCards = \player@Player {..} ->
-    if (_playerState == SatIn NotFolded) || (_playerName == playerName)
+    if (_playerStatus /= InHand Folded) || (_playerName == playerName)
       then player
       else Player {_pockets = Nothing, ..}
   | otherwise = \player@Player {..} ->

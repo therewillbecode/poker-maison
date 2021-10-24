@@ -30,7 +30,7 @@ import GHC.Enum (Enum (fromEnum))
 import Hedgehog (Gen)
 import qualified Hedgehog.Gen as Gen
 import qualified Hedgehog.Range as Range
-import Poker.Game.Game (getWinners, nextIPlayerToAct)
+import Poker.Game.Game (getWinners, nextIxPlayerToAct)
 import Poker.Game.Utils
   ( getActivePlayers,
     getPlayersSatIn,
@@ -124,7 +124,7 @@ dealPlayersGen ps cs =
     newName pos = playerName .~ "player" <> T.pack (show pos)
     nameByPos ps = imap newName ps
     dealPlayer cs plyr@Player {..}
-      | _playerState == SatOut = (plyr, cs)
+      | _playerStatus == SatOut = (plyr, cs)
       | otherwise = (,) Player {_pockets = Just $ PocketCards c1 c2, ..} remainingCs'
       where
         ([c1, c2], remainingCs') = splitAt 2 cs
@@ -144,14 +144,14 @@ genPlayer' street' possibleStates position cs = do
 -- minChips is calculated to reflect fact that a player can't fold if was all in (no action possible when chips 0)
 -- a player who has state set to Folded and has 0 chips is not a valid player state
 genPlayer :: Street -> PlayerState -> PlayerName -> Maybe PocketCards -> Gen Player
-genPlayer street' _playerState _playerName _pockets = do
+genPlayer street' _playerStatus _playerName _pockets = do
   _chips <- Gen.int $ Range.linear minChips 10000
-  _committed <- if _playerState == SatOut then Gen.constant 0 else Gen.int $ Range.linear 0 10000
+  _committed <- if _playerStatus == SatOut then Gen.constant 0 else Gen.int $ Range.linear 0 10000
   _bet <- if street' == PreDeal then Gen.constant 0 else Gen.int $ Range.linear 0 _committed
-  _actedThisTurn <- if _playerState == SatOut then Gen.constant False else Gen.bool
+  _actedThisTurn <- if _playerStatus == SatOut then Gen.constant False else Gen.bool
   return Player {..}
   where
-    minChips = if _playerState == SatIn Folded then 1 else 0
+    minChips = if _playerStatus == SatIn Folded then 1 else 0
     _possibleActions = []
 
 genGame :: [Street] -> [PlayerState] -> Gen Game
@@ -180,5 +180,5 @@ genGame possibleStreets pStates = do
   _dealer <- Gen.int $ Range.linear 0 (playerCount - 1)
   _currentPosToAct' <- Gen.int $ Range.linear 0 (playerCount - 1)
   let g'' = Game {..}
-      _currentPosToAct = fst <$> nextIPlayerToAct g'' (Just _dealer)
+      _currentPosToAct = fst <$> nextIxPlayerToAct g'' (Just _dealer)
   return Game {..}

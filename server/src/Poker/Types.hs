@@ -1,8 +1,11 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE GADTs #-}
+{-# LANGUAGE GeneralisedNewtypeDeriving #-}
 {-# LANGUAGE KindSignatures #-}
+{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE StandaloneDeriving #-}
@@ -20,6 +23,7 @@ import qualified Data.Text.Lazy as LT
 import Database.Persist.TH (derivePersistField)
 import GHC.Base (NonEmpty)
 import GHC.Generics (Generic)
+import System.Random
 
 data Rank
   = Two
@@ -99,15 +103,6 @@ type Bet = Int
 --  | In
 --  deriving (Eq, Show, Ord, Enum, Bounded, Read, Generic, ToJSON, FromJSON)
 
-data Street
-  = PreDeal
-  | PreFlop
-  | Flop
-  | Turn
-  | River
-  | Showdown
-  deriving (Eq, Ord, Show, Read, Bounded, Enum, Generic, ToJSON, FromJSON)
-
 data PocketCards
   = PocketCards Card Card
   deriving (Show, Eq, Read, Ord, Generic, ToJSON, FromJSON)
@@ -115,10 +110,19 @@ data PocketCards
 unPocketCards :: PocketCards -> [Card]
 unPocketCards (PocketCards c1 c2) = [c1, c2]
 
--- The amount of chips bet by the player this turn.
-newtype CommittedChips = CommittedChips Chips deriving (Eq, Show, Ord, Read, Generic, ToJSON, FromJSON)
+newtype Chips = Chips Int
+  deriving newtype (Num, Random)
+  deriving (Eq, Show, Ord, Read, Generic, ToJSON, FromJSON)
 
-newtype Chips = Chips Int deriving (Eq, Show, Ord, Read, Generic, ToJSON, FromJSON)
+instance Semigroup Chips where
+  (<>) (Chips a) (Chips b) = Chips $ a + b
+
+-- The amount of chips bet by the player this turn.
+newtype CommittedChips = CommittedChips Int deriving (Eq, Show, Ord, Read, Generic, ToJSON, FromJSON)
+
+instance Semigroup CommittedChips where
+  (<>) (CommittedChips a) (CommittedChips b) =
+    CommittedChips $ a + b
 
 mkChips :: Int -> Maybe Chips
 mkChips n
@@ -128,44 +132,94 @@ mkChips n
 unChips :: Chips -> Int
 unChips (Chips n) = n
 
-unCommittedChips :: CommittedChips -> Chips
-unCommittedChips (CommittedChips cs) = cs
-
 fromCommittedChips :: CommittedChips -> Int
-fromCommittedChips = unChips . unCommittedChips
+fromCommittedChips (CommittedChips cs) = cs
 
-data HasBet = HasCalled | HasRaised | HasReRaised
-  deriving (Eq, Show, Read, Ord, Generic, ToJSON, FromJSON)
-
-data ActionTaken = HasBet Chips | HasChecked | HasFolded
-  deriving (Eq, Show, Read, Ord, Generic, ToJSON, FromJSON)
-
-data InPlayerState = HasActed ActionTaken | HasNotActedYet | AllIn
-  deriving (Eq, Show, Read, Ord, Generic, ToJSON, FromJSON)
-
-data PlayerState = SatOut | SatIn InPlayerState
+data CanPlayerAct = PlayerCanAct | PlayerCannotAct
   deriving (Eq, Ord, Show, Read, Generic, ToJSON, FromJSON)
 
-data CanAct = CanAct | CannotAct
+-- WasNotInLastHand:
+--   Sometimes a player joins an in progress game and thus are
+--   not on BB or SB position. PlayerWasNotInLastHand denotes
+--   the fact the new player can choose to post an 'extra' blind
+--   to play immediately. Or the player can wait till the blind
+--   comes around to them.
+--
+newtype RequiredBlind = RequiredBlind (Maybe Blind)
   deriving (Eq, Ord, Show, Read, Generic, ToJSON, FromJSON)
 
-canAct :: Player -> CanAct
-canAct Player {..} =
-  case _playerState of
-    SatIn HasNotActedYet -> CanAct
-    SatIn (HasActed _) -> CanAct
-    SatIn AllIn -> CannotAct
-    SatOut -> CannotAct
+data PlayedLastHand = HasNotPlayedLastHand | HasPlayedLastHand
+  deriving (Eq, Show, Read, Ord, Generic, ToJSON, FromJSON)
+
+data HasPostedBlind = NotPostedBlind | PostedBlind Blind
+  deriving (Eq, Ord, Show, Read, Generic, ToJSON, FromJSON)
+
+data Blind
+  = SmallBlind
+  | BigBlind
+  deriving (Show, Eq, Read, Ord, Generic, ToJSON, FromJSON)
+
+data PlayerInHandStatus
+  = CanAct (Maybe LastBetOrCheck)
+  | Folded
+  | AllIn
+  deriving (Eq, Show, Read, Ord, Generic, ToJSON, FromJSON)
+
+data HasBet = HasCalled | HasBet Chips | HasRaised Chips
+  deriving (Eq, Show, Read, Ord, Generic, ToJSON, FromJSON)
+
+--betSize :: HasBet -> Int
+--betSize = \case
+--  HasCalled -> n
+--  HasBet n -> n
+--  HasRaised n -> n
+
+data LastBetOrCheck = MadeBet HasBet | Checked
+  deriving (Eq, Show, Read, Ord, Generic, ToJSON, FromJSON)
+
+satIn :: PlayerStatus -> Bool
+satIn (SatIn _ _) = True
+satIn _ = False
+
+data PlayerStatus
+  = SatOut
+  | SatIn PlayedLastHand HasPostedBlind
+  | InHand PlayerInHandStatus
+  deriving (Eq, Show, Read, Ord, Generic, ToJSON, FromJSON)
 
 data Player = Player
-  { _pockets :: PocketCards,
+  { _pockets :: Maybe PocketCards,
     _chips :: Chips,
+    _bet :: Chips,
+    _playerStatus :: PlayerStatus,
     _committed :: CommittedChips,
-    _playerState :: PlayerState,
     _playerName :: Text,
     _possibleActions :: [Action]
   }
   deriving (Eq, Show, Ord, Read, Generic, ToJSON, FromJSON)
+
+--data HasActedThisStreet = HasActed | HasNotActed
+--  deriving (Eq, Show, Ord, Read, Generic, ToJSON, FromJSON)
+
+-- data GameStage = NotStarted | PostBlinds | HandUnderway Street
+
+newtype PlayerPosition = PlayerPosition Int
+
+data BettingAction
+  = AwaitingPlayerAction
+  | NotAwaitingPlayerAction
+  | EveryoneFolded
+  | EveryoneAllIn
+  deriving (Eq, Show, Ord, Read, Generic, ToJSON, FromJSON)
+
+data Street
+  = PreDeal
+  | PreFlop
+  | Flop
+  | Turn
+  | River
+  | Showdown
+  deriving (Eq, Ord, Show, Read, Bounded, Enum, Generic, ToJSON, FromJSON)
 
 -- Highest ranking hand for a given Player that is in the game
 -- during the Showdown stage of the game (last stage)
@@ -196,10 +250,33 @@ newtype Deck
 unDeck :: Deck -> [Card]
 unDeck (Deck cards) = cards
 
+-- Idea - Could generalise the project to become
+-- a DSL for card game servers.
+-- (Game [Card]) [Player] actions
+
+-- With card games the rulechecking gets pretty nasty.
+--
+-- To tame the nastiness of validating game rules
+-- we model the poker game as a products of mealy machines.
+-- The table is a mealy machine and N players are N mealy machines.
+-- So we have N machines for checking all players,
+--  a few extra machines for checking the global rules
+--  player is a mealy machine and game is a mealy machine?
+--  like, this might be a good way to fight the complexity of building the whole state checker yourself
+--
+-- coding it ain't much hard either, but with having the composition abstracted out you kinda ensure that you don't forget about something when composing it manually
+--
+-- The key idea is
+-- "small coherent parts of the ruleset to keep are different mealy machines"
+--
+-- We can then use property based testing to ensure invariants
+-- hold between mealy machines. Also by modelling the game as a product
+-- of machines it is easier to build game generators in PBT as we can
+-- compose smaller generators which represent coherent rules of our game.
 data Game = Game
   { _players :: [Player],
-    _minBuyInChips :: Int,
-    _maxBuyInChips :: Int,
+    _minBuyInChips :: Chips,
+    _maxBuyInChips :: Chips,
     _maxPlayers :: Int,
     _board :: [Card],
     _winners :: Winners,
@@ -208,8 +285,8 @@ data Game = Game
     _smallBlind :: Int,
     _bigBlind :: Int,
     _street :: Street,
-    _pot :: Int,
-    _maxBet :: Bet,
+    _pot :: Chips,
+    _maxBet :: Chips,
     _dealer :: Int,
     _currentPosToAct :: Maybe Int -- If Nothing and not PreDeal stage of game then this signifies that
     -- no  player can act (i.e everyone all in) or
@@ -247,12 +324,6 @@ instance Show Game where
 
 type PlayerName = Text
 
-data Blind
-  = Small
-  | Big
-  | NoBlind
-  deriving (Show, Eq, Read, Ord, Generic, ToJSON, FromJSON)
-
 data PlayerAction = PlayerAction
   { name :: PlayerName,
     action :: Action
@@ -275,9 +346,9 @@ data Action
   | PostBlind Blind
   | Fold
   | Call
-  | Raise Int
+  | Raise Chips
   | Check
-  | Bet Int
+  | Bet Chips
   | ShowHand
   | MuckHand
   | SitOut
@@ -305,8 +376,8 @@ data GameErr
 -- i.e cannotBet "Cannot Bet Should Raise Instead - bets can only be made if there have been zero bets this street"
 data InvalidMoveErr
   = BlindNotRequired
-  | BlindRequired Blind
-  | NoBlindRequired
+  | BlindRequiredErr Blind
+  | NoBlindRequiredErr
   | BlindAlreadyPosted Blind
   | OutOfTurn CurrentPlayerToActErr -- _currentPosToAct is Just but not the player's index
   | NoPlayerCanAct -- _currentPosToAct is Nothing

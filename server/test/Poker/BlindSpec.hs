@@ -26,7 +26,7 @@ import Poker.Game.Utils (getGamePlayerNames, initialDeck)
 import Poker.Generators (allPStates, genGame)
 import Poker.Poker (initPlayer, initialGameState)
 import Poker.Types
-  ( Blind (Big, NoBlind, Small),
+  ( Blind (BigBlind, NoBlind, SmallBlind),
     Deck (Deck),
     Game (..),
     Player (..),
@@ -34,7 +34,7 @@ import Poker.Types
     SatInState (..),
     Street (PreDeal),
     Winners (NoWinners),
-    playerState,
+    playerStatus,
     players,
   )
 import Test.Hspec (describe, it, shouldBe)
@@ -59,7 +59,7 @@ twoPlayerGame =
             { _pockets = Nothing,
               _chips = 1950,
               _bet = 50,
-              _playerState = SatIn NotFolded,
+              _playerStatus = SatIn NotFolded,
               _playerName = "player1",
               _committed = 50,
               _actedThisTurn = False,
@@ -69,7 +69,7 @@ twoPlayerGame =
             { _pockets = Nothing,
               _chips = 2000,
               _bet = 0,
-              _playerState = SatOut,
+              _playerStatus = SatOut,
               _playerName = "player2",
               _committed = 0,
               _actedThisTurn = False,
@@ -100,7 +100,7 @@ twoPlayerGameAllBlindsPosted =
             { _pockets = Nothing,
               _chips = 1950,
               _bet = 25,
-              _playerState = SatIn NotFolded,
+              _playerStatus = SatIn NotFolded,
               _playerName = "player1",
               _committed = 25,
               _actedThisTurn = True,
@@ -110,7 +110,7 @@ twoPlayerGameAllBlindsPosted =
             { _pockets = Nothing,
               _chips = 2000,
               _bet = 50,
-              _playerState = SatIn NotFolded,
+              _playerStatus = SatIn NotFolded,
               _playerName = "player2",
               _committed = 50,
               _actedThisTurn = True,
@@ -141,7 +141,7 @@ threePlayerGame =
             { _pockets = Nothing,
               _chips = 1950,
               _bet = 0,
-              _playerState = SatOut,
+              _playerStatus = SatOut,
               _playerName = "player1",
               _committed = 0,
               _actedThisTurn = False,
@@ -151,7 +151,7 @@ threePlayerGame =
             { _pockets = Nothing,
               _chips = 2000,
               _bet = 0,
-              _playerState = SatOut,
+              _playerStatus = SatOut,
               _playerName = "player2",
               _committed = 0,
               _actedThisTurn = False,
@@ -161,7 +161,7 @@ threePlayerGame =
             { _pockets = Nothing,
               _chips = 2000,
               _bet = 0,
-              _playerState = SatOut,
+              _playerStatus = SatOut,
               _playerName = "player3",
               _committed = 0,
               _actedThisTurn = False,
@@ -192,7 +192,7 @@ threePlayerGameAllBlindsPosted =
             { _pockets = Nothing,
               _chips = 1950,
               _bet = 0,
-              _playerState = SatOut,
+              _playerStatus = SatOut,
               _playerName = "player1",
               _committed = 0,
               _actedThisTurn = False,
@@ -202,7 +202,7 @@ threePlayerGameAllBlindsPosted =
             { _pockets = Nothing,
               _chips = 2000,
               _bet = 25,
-              _playerState = SatIn NotFolded,
+              _playerStatus = SatIn NotFolded,
               _playerName = "player2",
               _committed = 25,
               _actedThisTurn = False,
@@ -212,7 +212,7 @@ threePlayerGameAllBlindsPosted =
             { _pockets = Nothing,
               _chips = 2000,
               _bet = 50,
-              _playerState = SatIn NotFolded,
+              _playerStatus = SatIn NotFolded,
               _playerName = "player3",
               _committed = 50,
               _actedThisTurn = False,
@@ -250,7 +250,7 @@ threePlayers = _players threePlayerGame
 prop_requiredBlinds_always_valid_arrangement_for_2_plyrs :: Property
 prop_requiredBlinds_always_valid_arrangement_for_2_plyrs = withDiscards 225 . property $ do
   g <- forAll $ Gen.filter twoPlayers (genGame [PreDeal] allPStates)
-  let legalBlindArrangements = [[Small, Big], [Big, Small]]
+  let legalBlindArrangements = [[SmallBlind, BigBlind], [SmallBlindind, SmallBlind]]
       requiredBlinds = getRequiredBlinds g
   assert (requiredBlinds `elem` legalBlindArrangements)
   where
@@ -259,7 +259,7 @@ prop_requiredBlinds_always_valid_arrangement_for_2_plyrs = withDiscards 225 . pr
 prop_requiredBlinds_always_valid_arrangement_for_3_plyrs :: Property
 prop_requiredBlinds_always_valid_arrangement_for_3_plyrs = withDiscards 225 . property $ do
   g <- forAll $ Gen.filter threePlayer (genGame [PreDeal] allPStates)
-  let legalBlindArrangements = [[Small, Big, NoBlind], [Big, NoBlind, Small], [NoBlind, Small, Big]]
+  let legalBlindArrangements = [[SmallBlind, BigBlind, NoBlind], [BigBlind,SmallBlindind, SmallBlind], SmallBlindind, SmallBlind, BigBlind]]
       requiredBlinds = getRequiredBlinds g
   assert (requiredBlinds `elem` legalBlindArrangements)
   where
@@ -268,7 +268,7 @@ prop_requiredBlinds_always_valid_arrangement_for_3_plyrs = withDiscards 225 . pr
 spec = do
   describe "blind required by player" $
     it "should return correct blind" $
-      blindRequiredByPlayer twoPlayerGame "player2" `shouldBe` Big
+      blindRequiredByPlayer twoPlayerGame "player2" `shouldBe` BigBlind
 
   describe "getSmallBlindPosition" $ do
     it "small blind position should be correct for a two player game" $ do
@@ -284,7 +284,7 @@ spec = do
       hedgehog $ do
         let isTwoPlayers = (== 2) . length . _players
         g <- forAll $ Gen.filter isTwoPlayers (genGame [PreDeal] allPStates)
-        let legalBlindArrangements = [[Small, Big], [Big, Small]]
+        let legalBlindArrangements = [[SmallBlind, BigBlind], [SmallBlindind, SmallBlind]]
             requiredBlinds = getRequiredBlinds g
         --
         (requiredBlinds `elem` legalBlindArrangements) === True
@@ -293,7 +293,7 @@ spec = do
       hedgehog $ do
         let isThreePlayers = (== 3) . length . _players
         g <- forAll $ Gen.filter isThreePlayers (genGame [PreDeal] allPStates)
-        let legalBlindArrangements = [[Small, Big, NoBlind], [Big, NoBlind, Small], [NoBlind, Small, Big]]
+        let legalBlindArrangements = [[SmallBlind, BigBlind, NoBlind], [BigBlind,SmallBlindind, SmallBlind], SmallBlindind, SmallBlind, BigBlind]]
             requiredBlinds = getRequiredBlinds g
         (requiredBlinds `elem` legalBlindArrangements) === True
 
@@ -309,49 +309,49 @@ spec = do
         getSmallBlindPosition ["Player1", "Player2"] dealerPos `shouldBe` 0
 
     describe "blindRequiredByPlayer" $ do
-      it "returns Small if player position is dealer + 1 for three players" $ do
+      it "returns SmallBlind if player position is dealer + 1 for three players" $ do
         let testPlayers =
-              (playerState .~ SatIn NotFolded)
+              (playerStatus .~ SatIn NotFolded)
                 <$> (initPlayer <$> ["Player1", "Player2", "Player3"] <*> [100])
         let game = players .~ testPlayers $ initialGameState'
-        blindRequiredByPlayer game "Player2" `shouldBe` Small
+        blindRequiredByPlayer game "Player2" `shouldBe` SmallBlind
 
-      it "returns Big if player position is dealer + 2 for three players" $ do
+      it "returns BigBlind if player position is dealer + 2 for three players" $ do
         let testPlayers =
-              (playerState .~ SatIn NotFolded)
+              (playerStatus .~ SatIn NotFolded)
                 <$> (initPlayer <$> ["Player1", "Player2", "Player3"] <*> [100])
         let game = players .~ testPlayers $ initialGameState'
-        blindRequiredByPlayer game "Player3" `shouldBe` Big
+        blindRequiredByPlayer game "Player3" `shouldBe` BigBlind
 
       it
-        "returns NoBlind if player position is dealer for three players and playerState is SatIn NotFolded"
+        "returns NoBlind if player position is dealer for three players and playerStatus is SatIn NotFolded"
         $ do
           let testPlayers =
-                (playerState .~ SatIn NotFolded)
+                (playerStatus .~ SatIn NotFolded)
                   <$> (initPlayer <$> ["Player1", "Player2", "Player3"] <*> [100])
           let game = players .~ testPlayers $ initialGameState'
           blindRequiredByPlayer game "Player1" `shouldBe` NoBlind
 
       it
-        "returns Big if player position is dealer for three players and playerState is SatOut"
+        "returns BigBlind if player position is dealer for three players and playerStatus is SatOut"
         $ do
           let testPlayers =
-                (playerState .~ SatOut)
+                (playerStatus .~ SatOut)
                   <$> (initPlayer <$> ["Player1", "Player2", "Player3"] <*> [100])
           let game = players .~ testPlayers $ initialGameState'
           blindRequiredByPlayer game "Player1" `shouldBe` NoBlind
 
-      it "returns Small if player position is dealer for two players" $ do
+      it "returns SmallBlind if player position is dealer for two players" $ do
         let testPlayers =
-              (playerState .~ SatIn NotFolded)
+              (playerStatus .~ SatIn NotFolded)
                 <$> (initPlayer <$> ["Player1", "Player2"] <*> [100])
         let game = players .~ testPlayers $ initialGameState'
-        blindRequiredByPlayer game "Player1" `shouldBe` Small
+        blindRequiredByPlayer game "Player1" `shouldBe` SmallBlind
 
-      it "returns Big if player position is dealer + 1 for two players" $ do
+      it "returns BigBlind if player position is dealer + 1 for two players" $ do
         let testPlayers = initPlayer <$> ["Player1", "Player2"] <*> [100]
         let game = players .~ testPlayers $ initialGameState'
-        blindRequiredByPlayer game "Player2" `shouldBe` Big
+        blindRequiredByPlayer game "Player2" `shouldBe` BigBlind
 
   describe "haveRequiredBlindsBeenPosted" $ do
     it
@@ -375,19 +375,19 @@ spec = do
       "should set players that are not in blind position to SatIn NotFolded for three players"
       $ do
         let newGame = updatePlayersInHand threePlayerGameAllBlindsPosted
-        let playerStates = (\Player {..} -> _playerState) <$> _players newGame
+        let playerStates = (\Player {..} -> _playerStatus) <$> _players newGame
         playerStates `shouldBe` [SatIn NotFolded, SatIn NotFolded, SatIn NotFolded]
 
     it
       "should return correct player states for two players when all blinds posted"
       $ do
         let newGame = updatePlayersInHand twoPlayerGameAllBlindsPosted
-        let playerStates = (\Player {..} -> _playerState) <$> _players newGame
+        let playerStates = (\Player {..} -> _playerStatus) <$> _players newGame
         playerStates `shouldBe` [SatIn NotFolded, SatIn NotFolded]
 
     it
       "should return correct player states for two players when not all blinds posted"
       $ do
         let newGame = updatePlayersInHand twoPlayerGame
-        let playerStates = (\Player {..} -> _playerState) <$> _players newGame
+        let playerStates = (\Player {..} -> _playerStatus) <$> _players newGame
         playerStates `shouldBe` [SatIn NotFolded, SatOut]

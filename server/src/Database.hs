@@ -68,7 +68,7 @@ import Database.Redis
     setex,
   )
 import qualified Database.Redis as Redis
-import Poker.Types (Game (..), unDeck)
+import Poker.Types (Game (..), unChips, unDeck)
 import Schema
   ( EntityField
       ( TableEntityName,
@@ -236,8 +236,8 @@ dbInsertGame connString tableId Game {..} = do
         { gameEntityTableID = tableId,
           gameEntityCreatedAt = timestamp,
           gameEntityPlayers = _players,
-          gameEntityMinBuyInChips = _minBuyInChips,
-          gameEntityMaxBuyInChips = _maxBuyInChips,
+          gameEntityMinBuyInChips = unChips _minBuyInChips,
+          gameEntityMaxBuyInChips = unChips _maxBuyInChips,
           gameEntityMaxPlayers = _maxPlayers,
           gameEntityBoard = _board,
           gameEntityWinners = _winners,
@@ -246,8 +246,8 @@ dbInsertGame connString tableId Game {..} = do
           gameEntitySmallBlind = _smallBlind,
           gameEntityBigBlind = _bigBlind,
           gameEntityStreet = _street,
-          gameEntityPot = _pot,
-          gameEntityMaxBet = _maxBet,
+          gameEntityPot = unChips _pot,
+          gameEntityMaxBet = unChips _maxBet,
           gameEntityDealer = _dealer,
           gameEntityCurrentPosToAct = _currentPosToAct
         }

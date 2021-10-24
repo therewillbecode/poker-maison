@@ -30,19 +30,6 @@ import Poker.Game.Utils
     getPlayerNames,
   )
 import Poker.Types
-  ( Action (..),
-    Blind (..),
-    CurrentPlayerToActErr (CurrentPlayerToActErr),
-    Game (..),
-    GameErr (..),
-    InvalidMoveErr (..),
-    Player (..),
-    PlayerName,
-    PlayerState (..),
-    SatInState (NotFolded),
-    Street (PreDeal, PreFlop, Showdown),
-    Winners (MultiPlayerShowdown, SinglePlayerShowdown),
-  )
 
 -- TODO remove sitdowm from playerMoves and then
 -- can use  checkPlayerSatAtTable on validateAction
@@ -68,7 +55,7 @@ validateAction game@Game {..} name' = \case
   MuckHand -> validateShowOrMuckHand game name' MuckHand
 
 -- Cannot post a blind to start a game unless at least two active players are present.
--- An active player is one whose playerState is set to In.
+-- An active player is one whose playerStatus is set to In.
 canPostBlind :: Game -> PlayerName -> Blind -> Either GameErr ()
 canPostBlind game@Game {..} name blind
   | _street /= PreDeal = Left $ InvalidMove name InvalidActionForStreet
@@ -78,9 +65,8 @@ canPostBlind game@Game {..} name blind
         CannotPostBlind
           "Cannot post blind unless a minimum of two active players are sat at table"
   | otherwise = case blind of
-    Big -> if chipCount < _bigBlind then notEnoughChipsErr else Right ()
-    Small -> if chipCount < _smallBlind then notEnoughChipsErr else Right ()
-    NoBlind -> Left $ InvalidMove name CannotPostNoBlind
+    BigBlind -> if unChips chipCount < _bigBlind then notEnoughChipsErr else Right ()
+    SmallBlind -> if unChips chipCount < _smallBlind then notEnoughChipsErr else Right ()
   where
     chipCount = _chips $ fromJust $ getGamePlayer game name
     activePlayersCount = length $ getActivePlayers _players
@@ -112,7 +98,7 @@ isPlayerActingOutOfTurn game@Game {..} name
   where
     gamePlayerNames = getGamePlayerNames game
     numberOfPlayersSatIn =
-      length $ filter (\Player {..} -> _playerState == SatIn NotFolded) _players
+      length $ filter (\Player {..} -> _playerStatus /= InHand Folded) _players
     currPosToActOutOfBounds =
       maybe False ((length _players - 1) <) _currentPosToAct
     isNewGame = _street == PreDeal && isNothing _currentPosToAct
@@ -130,9 +116,9 @@ canTimeout name game@Game {..}
   | _street == Showdown = Left $ InvalidMove name InvalidActionForStreet
   | otherwise = isPlayerActingOutOfTurn game name
 
-canBet :: PlayerName -> Int -> Game -> Either GameErr ()
+canBet :: PlayerName -> Chips -> Game -> Either GameErr ()
 canBet name amount game@Game {..}
-  | amount < _bigBlind =
+  | unChips amount < _bigBlind =
     Left $ InvalidMove name BetLessThanBigBlind
   | amount > chipCount =
     Left $ InvalidMove name NotEnoughChipsForAction
@@ -151,16 +137,16 @@ canBet name amount game@Game {..}
 -- Keep in mind that a player can always raise all in,
 -- even if their total chip count is less than what
 -- a min-bet or min-raise would be.
-canRaise :: PlayerName -> Int -> Game -> Either GameErr ()
+canRaise :: PlayerName -> Chips -> Game -> Either GameErr ()
 canRaise name amount game@Game {..}
   | _street == Showdown || _street == PreDeal =
     Left $ InvalidMove name InvalidActionForStreet
-  | _street == PreFlop && _maxBet == _bigBlind =
+  | _street == PreFlop && unChips _maxBet == _bigBlind =
     Left $ InvalidMove name CannotRaiseShouldBetInstead -- a blind doesnt count as a sufficient bet to qualify a raise
   | _maxBet == 0 =
     Left $ InvalidMove name CannotRaiseShouldBetInstead
   | amount < minRaise && amount /= chipCount =
-    Left $ InvalidMove name $ RaiseAmountBelowMinRaise minRaise
+    Left $ InvalidMove name $ RaiseAmountBelowMinRaise $ unChips minRaise
   | amount > chipCount =
     Left $ InvalidMove name NotEnoughChipsForAction
   | otherwise =
@@ -171,13 +157,13 @@ canRaise name amount game@Game {..}
 
 canCheck :: PlayerName -> Game -> Either GameErr ()
 canCheck name Game {..}
-  | _street == PreFlop && _committed < _bigBlind =
+  | _street == PreFlop && fromCommittedChips _committed < _bigBlind =
     Left $
       InvalidMove name CannotCheckShouldCallRaiseOrFold
   | _street == Showdown || _street == PreDeal =
     Left $
       InvalidMove name InvalidActionForStreet
-  | _committed < _maxBet =
+  | fromCommittedChips _committed < unChips _maxBet =
     Left $
       InvalidMove name CannotCheckShouldCallRaiseOrFold
   | otherwise = Right ()
@@ -230,11 +216,11 @@ canSitOut name game@Game {..}
 canSitIn :: PlayerName -> Game -> Either GameErr ()
 canSitIn name game@Game {..}
   | _street /= PreDeal = Left $ InvalidMove name CannotSitInOutsidePreDeal
-  | isNothing currentState = Left $ NotAtTable name
-  | currentState == Just (SatIn NotFolded) = Left $ InvalidMove name AlreadySatIn
+  | isNothing pState = Left $ NotAtTable name
+  | maybe False satIn pState = Left $ InvalidMove name AlreadySatIn
   | otherwise = Right ()
   where
-    currentState = getGamePlayerState game name
+    pState = getGamePlayerState game name
 
 canLeaveSeat :: PlayerName -> Game -> Either GameErr ()
 canLeaveSeat playerName game@Game {..}
@@ -257,21 +243,21 @@ validateBlindAction game@Game {..} playerName blind
   | otherwise = case getGamePlayer game playerName of
     Nothing -> Left $ PlayerNotAtTable playerName
     Just p@Player {..} -> case blindRequired of
-      Small ->
-        if blind == Small
+      Nothing -> Left $ InvalidMove playerName BlindNotRequired
+      Just SmallBlind ->
+        if blind == SmallBlind
           then
-            if _committed >= _smallBlind
-              then Left $ InvalidMove playerName $ BlindAlreadyPosted Small
+            if fromCommittedChips _committed >= _smallBlind
+              then Left $ InvalidMove playerName $ BlindAlreadyPosted SmallBlind
               else Right ()
-          else Left $ InvalidMove playerName $ BlindRequired Small
-      Big ->
-        if blind == Big
+          else Left $ InvalidMove playerName $ BlindRequiredErr SmallBlind
+      Just BigBlind ->
+        if blind == BigBlind
           then
-            if _committed >= bigBlindValue
-              then Left $ InvalidMove playerName $ BlindAlreadyPosted Big
+            if fromCommittedChips _committed >= bigBlindValue
+              then Left $ InvalidMove playerName $ BlindAlreadyPosted BigBlind
               else Right ()
-          else Left $ InvalidMove playerName $ BlindRequired Big
-      NoBlind -> Left $ InvalidMove playerName NoBlindRequired
+          else Left $ InvalidMove playerName $ BlindRequiredErr BigBlind
       where
         blindRequired = blindRequiredByPlayer game playerName
         bigBlindValue = _smallBlind * 2

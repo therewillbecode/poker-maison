@@ -11,22 +11,8 @@ import qualified Data.List.Safe as Safe
 import Data.Maybe (fromJust, isNothing)
 import Data.Text (Text)
 import Poker.Game.Blinds
-  ( blindRequiredByPlayer,
-    haveRequiredBlindsBeenPosted,
-    updatePlayersInHand,
-  )
 import Poker.Game.Hands (value)
 import Poker.Game.Utils
-  ( countActive,
-    filterPlayersWithLtChips,
-    filterSatOutPlayers,
-    getActivePlayers,
-    getPlayersSatIn,
-    inPositionToAct,
-    maximums,
-    modDec,
-    modInc,
-  )
 import Poker.Types
 
 -- | Returns both the dealt players and remaining cards left in deck.
@@ -36,7 +22,7 @@ dealToPlayers :: Deck -> [Player] -> (Deck, [Player])
 dealToPlayers =
   mapAccumR
     ( \deck player ->
-        if player ^. playerState == SatIn NotFolded
+        if player ^. playerStatus == InHand (CanAct Nothing)
           then
             let (pocketCs, remainingDeck) = dealPockets deck
              in (remainingDeck, (pockets ?~ pocketCs) player)
@@ -75,14 +61,63 @@ getNextStreet :: Street -> Street
 getNextStreet Showdown = minBound
 getNextStreet _street = succ _street
 
+initPlayer :: Text -> Int -> Player
+initPlayer playerName chips =
+  Player
+    { _pockets = Nothing,
+      _playerStatus = SatIn HasNotPlayedLastHand NotPostedBlind,
+      _playerName = playerName,
+      _bet = 0,
+      _possibleActions = [],
+      _committed = CommittedChips 0,
+      _chips = Chips chips
+    }
+
+-- Everytime the game progresses to another street we need to
+-- reset player statuses if the player has the possibility of acting
+-- this street, that is the player has not folded or still has chips left
+-- to make further bets.
+nextHandStatus :: Chips -> PlayerStatus -> PlayerStatus
+nextHandStatus (Chips 0) _ = SatOut
+nextHandStatus _ a@(InHand _) = SatIn HasPlayedLastHand NotPostedBlind
+nextHandStatus _ SatOut = SatIn HasNotPlayedLastHand NotPostedBlind
+nextHandStatus _ (SatIn playedLastHand hasPostedBlind) = SatIn playedLastHand hasPostedBlind
+
+-- Update active players states to prepare them for the next hand.
+nextHandPlayer :: Player -> Player
+nextHandPlayer Player {..} =
+  Player
+    { _pockets = Nothing,
+      _playerStatus = nextHandStatus _chips _playerStatus,
+      _committed = CommittedChips 0,
+      ..
+    }
+
+nextHandPlayers :: Game -> Game
+nextHandPlayers = players %~ (<$>) nextHandPlayer
+
+-- Everytime the game progresses to another street we need to
+-- reset player statuses if the player has the possibility of acting
+-- this street, that is the player has not folded or still has chips left
+-- to make further bets.
+nextStreetStatus :: PlayerStatus -> PlayerStatus
+nextStreetStatus (InHand AllIn) = InHand AllIn
+nextStreetStatus (InHand Folded) = InHand Folded
+nextStreetStatus (InHand _) = InHand $ CanAct Nothing
+nextStreetStatus s = s
+
+nextStreetPlayers :: Game -> Game
+nextStreetPlayers = players %~ (<$>) (playerStatus %~ nextStreetStatus)
+
+updatePosToAct :: Game -> Game
+updatePosToAct g = g & currentPosToAct %~ nextPosToAct (_players g)
+
 -- Unless in the scenario where everyone is all in
 -- if no further player actions are possible (i.e betting has finished)
 -- then actedThisTurn should be set to True for all active players in Hand.
 -- This scenario occurs when all players or all but one players are all in.
-resetPlayers :: Game -> Game
-resetPlayers game@Game {..} = (players .~ newPlayers) game
-  where
-    newPlayers = (bet .~ 0) . (actedThisTurn .~ False) <$> _players
+--updatePlayerStatus :: Street -> PlayerStatus -> PlayerStatus
+--updatePlayerStatus PreFlop = (bet .~ 0) . (Pla .~ False) <$> _players
 
 -- When there are only two players in game (Heads Up) then the first player
 -- to act PreFlop is the player at the dealer position.
@@ -93,62 +128,62 @@ progressToPreFlop game@Game {..} =
   game
     & (street .~ PreFlop)
       . (currentPosToAct .~ firstPosToAct)
-      . (players %~ (<$>) (actedThisTurn .~ False))
       . deal
-      . updatePlayersInHand
+      . nextStreetPlayers
   where
     firstPosToAct
       | countActive _players == 2 = pure _dealer
       | -- When heads up dealer goes first
         otherwise =
-        nextPosToAct game
+        nextPosToAct _players _currentPosToAct
 
 progressToFlop :: Game -> Game
 progressToFlop game
-  | allButOneAllIn game =
+  | allButOneAllIn (_players game) =
     game & (street .~ Flop) . dealBoardCards 3
   | otherwise =
     game
       & (street .~ Flop)
-        . (currentPosToAct .~ nextPosToAct game)
+        . updatePosToAct
         . (maxBet .~ 0)
         . dealBoardCards 3
-        . resetPlayers
+        . nextStreetPlayers
 
 progressToTurn :: Game -> Game
 progressToTurn game
-  | allButOneAllIn game =
+  | allButOneAllIn (_players game) =
     game & (street .~ Turn) . dealBoardCards 1
   | otherwise =
     game
       & (street .~ Turn)
         . (maxBet .~ 0)
-        . (currentPosToAct .~ nextPosToAct game)
+        . updatePosToAct
         . dealBoardCards 1
-        . resetPlayers
+        . nextStreetPlayers
 
 progressToRiver :: Game -> Game
 progressToRiver game@Game {..}
-  | allButOneAllIn game =
+  | allButOneAllIn _players =
     game & (street .~ River) . dealBoardCards 1
   | otherwise =
     game
       & (street .~ River)
         . (maxBet .~ 0)
-        . (currentPosToAct .~ nextPosToAct game)
+        . updatePosToAct
         . dealBoardCards 1
-        . resetPlayers
+        . nextStreetPlayers
 
 progressToShowdown :: Game -> Game
 progressToShowdown game@Game {..} =
   game
     & (street .~ Showdown)
       . (winners .~ winners')
+      . (currentPosToAct .~ Nothing)
       . (players .~ awardedPlayers)
       . (currentPosToAct .~ Nothing)
   where
     winners' = getWinners game
-    awardedPlayers = awardWinners _players _pot winners'
+    awardedPlayers = awardWinners _players (unChips _pot) winners'
 
 -- need to give players the chips they are due and split pot if necessary
 -- if only one active player then this is a result of everyone else folding
@@ -165,14 +200,14 @@ awardWinners _players pot' = \case
         playerNames = snd <$> winners'
      in ( \p@Player {..} ->
             if _playerName `elem` playerNames
-              then Player {_chips = _chips + chipsPerPlayer, ..}
+              then Player {_chips = _chips <> (Chips chipsPerPlayer), ..}
               else p
         )
           <$> _players
   SinglePlayerShowdown _ ->
     ( \p@Player {..} ->
         if p `elem` getActivePlayers _players
-          then Player {_chips = _chips + pot', ..}
+          then Player {_chips = _chips <> (Chips pot'), ..}
           else p
     )
       <$> _players
@@ -181,8 +216,7 @@ awardWinners _players pot' = \case
 -- (no more than 1 player not all (> 0 chips) per pot and every player has acted
 canPubliciseActivesCards :: Game -> Bool
 canPubliciseActivesCards g =
-  haveAllPlayersActed g && allButOneAllIn g
-    || everyoneAllIn g
+  allButOneAllIn (_players g)
     || multiplayerShowdown
   where
     multiplayerShowdown =
@@ -218,7 +252,7 @@ getNextHand Game {..} shuffledDeck =
     newPlayers =
       filterSatOutPlayers $
         filterPlayersWithLtChips _bigBlind $
-          resetPlayerCardsAndBets
+          nextHandPlayer
             <$> _players
     newWaitlist = drop freeSeatsNo _waitlist
     nextPlayerToAct = modInc incAmount newDealer (length newPlayers - 1)
@@ -236,13 +270,13 @@ haveAllPlayersActed g@Game {..}
 
 awaitingPlayerAction :: Game -> Bool
 awaitingPlayerAction Game {..} =
-  length activePlayers >= 2 && any (canAct _maxBet) activePlayers
+  length activePlayers >= 2 && any (callNeeded _maxBet) activePlayers
   where
     activePlayers = getActivePlayers _players
-    canAct maxBet' Player {..} =
-      _playerState /= SatIn Folded
-        && _chips > 0
-        && (not _actedThisTurn || _actedThisTurn && (_bet < maxBet'))
+    callNeeded maxBet' Player {..} =
+      canAct _playerStatus == PlayerCanAct
+        && unChips _chips > 0
+        && _bet < maxBet'
 
 -- If all players have folded apart from a remaining player then the mucked boolean
 -- inside the player value will determine if we show the remaining players hand to the
@@ -251,15 +285,15 @@ awaitingPlayerAction Game {..} =
 -- Otherwise we just get the handrankings of all active players.
 getWinners :: Game -> Winners
 getWinners game@Game {..} =
-  if allButOneFolded game
+  if allButOneFolded _players
     then
       SinglePlayerShowdown $
         head $
           flip (^.) playerName
-            <$> filter (\Player {..} -> _playerState == SatIn NotFolded) _players
+            <$> filter (\Player {..} -> _playerStatus /= InHand Folded) _players
     else MultiPlayerShowdown $ maximums $ getHandRankings _players _board
 
--- Return the best hands and the active players (playerState of In) who hold
+-- Return the best hands and the active players (playerStatus of In) who hold
 -- those hands.
 --
 -- If more than one player holds the same winning hand then the second part
@@ -278,43 +312,6 @@ getHandRankings plyrs boardCards =
       remainingPlayersInHand
   where
     remainingPlayersInHand = getActivePlayers plyrs
-
--- Update active players states to prepare them for the next hand.
-resetPlayerCardsAndBets :: Player -> Player
-resetPlayerCardsAndBets Player {..} =
-  Player
-    { _pockets = Nothing,
-      _playerState = newPlayerState,
-      _bet = 0,
-      _committed = 0,
-      _actedThisTurn = False,
-      ..
-    }
-  where
-    newPlayerState
-      | _chips == 0 = SatOut
-      | _playerState == SatIn Folded || _playerState == SatIn NotFolded = SatIn NotFolded
-      | otherwise = SatOut
-
--- The game should go straight to showdown if all but one players is In hand
-allButOneFolded :: Game -> Bool
-allButOneFolded game@Game {..} =
-  _street /= PreDeal && length playersInHand <= 1
-  where
-    playersInHand = filter ((== SatIn NotFolded) . (^. playerState)) _players
-
-initPlayer :: Text -> Int -> Player
-initPlayer playerName chips =
-  Player
-    { _pockets = Nothing,
-      _bet = 0,
-      _playerState = SatIn NotFolded,
-      _playerName = playerName,
-      _possibleActions = [],
-      _committed = 0,
-      _actedThisTurn = False,
-      _chips = chips
-    }
 
 -- During PreDeal we start timing out players who do not post their respective blinds
 -- in turn after an initial blind has been posted
@@ -347,14 +344,13 @@ doesPlayerHaveToAct playerName game@Game {..}
       else case _players Safe.!! fromJust _currentPosToAct of
         Nothing -> False
         Just Player {..}
-          | _chips == 0 ->
+          | unChips _chips == 0 ->
             False
           | _street
               == Showdown
-              || activePlayerCount < 2
+              || countActive _players < 2
               || haveAllPlayersActed game
-              || _playerState
-              /= SatIn NotFolded
+              || (PlayerCannotAct == canAct _playerStatus)
               || _street
               == PreDeal && _maxBet
               == 0 ->
@@ -362,12 +358,12 @@ doesPlayerHaveToAct playerName game@Game {..}
           | _street == PreDeal ->
             _playerName
               == playerName
-              && blindRequiredByPlayer game playerName /= NoBlind
+              && ( isNothing $
+                     blindRequiredByPlayer game playerName
+                 )
           | otherwise ->
             _playerName == playerName
   where
-    activePlayerCount =
-      length $ filter (\Player {..} -> _playerState == SatIn NotFolded) _players
     currPosToActOutOfBounds =
       maybe False ((length _players - 1) <) _currentPosToAct
 
@@ -381,31 +377,33 @@ doesPlayerHaveToAct playerName game@Game {..}
 
 -- second param is the position we start from when calculating the next position to act
 -- unless this is the beginning of the next stage then the initialPos == _currentPosToAct
-nextIPlayerToAct :: Game -> Maybe Int -> Maybe (Int, Player)
-nextIPlayerToAct Game {..} = nextIPlayer
+nextIxPlayerToAct :: [Player] -> Maybe Int -> Maybe (Int, Player)
+nextIxPlayerToAct ps = nextIPlayer
   where
-    iplayers = zip [0 ..] _players
+    iplayers = zip [0 ..] ps
     iplayers' currPosToAct =
       let (a, b) = splitAt currPosToAct iplayers in b <> a
     nextIPlayer = \case
       Nothing -> Nothing
       Just currPos ->
-        let nextIPlayerToAct = tail $ iplayers' currPos
+        let nextIxPlayerToAct = tail $ iplayers' currPos
          in find
-              (\(_, Player {..}) -> _playerState == SatIn NotFolded && _chips > 0)
-              nextIPlayerToAct
+              (\(_, Player {..}) -> PlayerCanAct == canAct _playerStatus)
+              nextIxPlayerToAct
 
 -- gets the position of the next player which needs to act
 -- if currentPosToAct is already a Nothing then this means we are starting a new hand
 -- and will just return the initial player to act for a new hand
-nextPosToAct :: Game -> Maybe Int
-nextPosToAct g@Game {..}
-  | haveAllPlayersActed g && not (everyoneAllIn g) = firstPosToAct g
-  | everyoneAllIn g = Nothing
-  | otherwise = fst <$> nextIPlayerToAct g _currentPosToAct
+nextPosToAct :: [Player] -> Maybe Int -> Maybe Int
+nextPosToAct ps currPostToAct
+  | status == EveryoneFolded = Nothing
+  | status == EveryoneAllIn = Nothing
+  | status == NotAwaitingPlayerAction = Nothing
+  | otherwise = fst <$> nextIxPlayerToAct ps currPostToAct
   where
-    activePs = getActivePlayers _players
+    activePs = getActivePlayers ps
     activePCount = length activePs
+    status = bettingActionStatus ps
 
 -- used to get the initial player to act when progressing to a new game stage
 firstPosToAct :: Game -> Maybe Int
@@ -420,23 +418,11 @@ firstPosToAct g@Game {..}
     activePCount = length activePs
     incPosBy n = Just $ modInc n _dealer (activePCount - 1)
     firstPToAct dealerIncAmount =
-      fst <$> nextIPlayerToAct g (incPosBy (modDec dealerIncAmount activePCount))
+      fst
+        <$> nextIxPlayerToAct
+          _players
+          (incPosBy (modDec dealerIncAmount activePCount))
 
 isMultiPlayerShowdown :: Winners -> Bool
 isMultiPlayerShowdown (MultiPlayerShowdown _) = True
 isMultiPlayerShowdown _ = False
-
-allButOneAllIn :: Game -> Bool
-allButOneAllIn = (== 1) . countPlayersNotAllIn
-
-everyoneAllIn :: Game -> Bool
-everyoneAllIn = (== 0) . countPlayersNotAllIn
-
-countPlayersNotAllIn :: Game -> Int
-countPlayersNotAllIn game@Game {..}
-  | numPlayersIn < 2 = 0
-  | otherwise = numPlayersIn - numPlayersAllIn
-  where
-    numPlayersIn = length $ getActivePlayers _players
-    numPlayersAllIn =
-      length $ filter (\Player {..} -> _playerState == SatIn NotFolded && _chips == 0) _players

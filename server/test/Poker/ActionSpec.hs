@@ -19,7 +19,7 @@ import Poker.Game.Actions
 import Poker.Game.Utils (initialDeck)
 import Poker.Poker (initialGameState)
 import Poker.Types
-  ( Blind (Small),
+  ( Blind (SmallBlind),
     Game (_pot, _smallBlind),
     Player (..),
     PlayerState (..),
@@ -30,7 +30,7 @@ import Poker.Types
     committed,
     currentPosToAct,
     maxBet,
-    playerState,
+    playerStatus,
     players,
     pot,
     street,
@@ -46,7 +46,7 @@ player1 =
     { _pockets = Nothing,
       _chips = 2000,
       _bet = 0,
-      _playerState = SatIn NotFolded,
+      _playerStatus = SatIn NotFolded,
       _playerName = "player1",
       _committed = 100,
       _actedThisTurn = True,
@@ -59,7 +59,7 @@ player2 =
     { _pockets = Nothing,
       _chips = 2000,
       _bet = 0,
-      _playerState = SatIn Folded,
+      _playerStatus = SatIn Folded,
       _playerName = "player2",
       _committed = 50,
       _actedThisTurn = False,
@@ -72,7 +72,7 @@ player3 =
     { _pockets = Nothing,
       _chips = 2000,
       _bet = 0,
-      _playerState = SatIn NotFolded,
+      _playerStatus = SatIn NotFolded,
       _playerName = "player3",
       _committed = 50,
       _actedThisTurn = False,
@@ -85,7 +85,7 @@ player4 =
     { _pockets = Nothing,
       _chips = 2000,
       _bet = 0,
-      _playerState = SatIn NotFolded,
+      _playerStatus = SatIn NotFolded,
       _playerName = "player3",
       _committed = 0,
       _actedThisTurn = False,
@@ -98,7 +98,7 @@ player5 =
     { _pockets = Nothing,
       _chips = 4000,
       _bet = 4000,
-      _playerState = SatIn NotFolded,
+      _playerStatus = SatIn NotFolded,
       _playerName = "player5",
       _committed = 4000,
       _actedThisTurn = True,
@@ -111,7 +111,7 @@ player6 =
     { _pockets = Nothing,
       _chips = 2000,
       _bet = 200,
-      _playerState = SatIn NotFolded,
+      _playerStatus = SatIn NotFolded,
       _playerName = "player6",
       _committed = 250,
       _actedThisTurn = True,
@@ -135,7 +135,7 @@ spec = do
               . (players .~ [(committed .~ 0) player1, player3])
               $ initialGameState'
           pName = "player1"
-          blind = Small
+          blind = SmallBlind
           newGame = postBlind blind pName game
           playerWhoBet = newGame ^? players . ix 0
           smallBlindValue = _smallBlind game
@@ -144,7 +144,7 @@ spec = do
               { _pockets = Nothing,
                 _chips = 2000 - smallBlindValue,
                 _bet = smallBlindValue,
-                _playerState = SatIn NotFolded,
+                _playerStatus = SatIn NotFolded,
                 _playerName = "player1",
                 _committed = smallBlindValue,
                 _actedThisTurn = True,
@@ -157,7 +157,7 @@ spec = do
             (street .~ PreDeal) . (players .~ [player1, player3]) $
               initialGameState'
           pName = "player1"
-          blind = Small
+          blind = SmallBlind
           newGame = postBlind blind pName game
           playerWhoBet = newGame ^? players . ix 0
       _pot newGame `shouldBe` _smallBlind game
@@ -176,7 +176,7 @@ spec = do
               { _pockets = Nothing,
                 _chips = 2000 - betValue,
                 _bet = betValue,
-                _playerState = SatIn NotFolded,
+                _playerStatus = SatIn NotFolded,
                 _playerName = "player1",
                 _committed = 100 + betValue,
                 _actedThisTurn = True,
@@ -215,7 +215,7 @@ spec = do
               { _pockets = Nothing,
                 _chips = 0,
                 _bet = betValue,
-                _playerState = SatIn NotFolded,
+                _playerStatus = SatIn NotFolded,
                 _playerName = "player1",
                 _committed = 100 + betValue,
                 _actedThisTurn = True,
@@ -248,7 +248,7 @@ spec = do
               { _pockets = Nothing,
                 _chips = 2000,
                 _bet = 0,
-                _playerState = SatIn Folded,
+                _playerStatus = SatIn Folded,
                 _playerName = "player1",
                 _committed = 100,
                 _actedThisTurn = True,
@@ -280,7 +280,7 @@ spec = do
               { _pockets = Nothing,
                 _chips = 1800,
                 _bet = 400,
-                _playerState = SatIn NotFolded,
+                _playerStatus = SatIn NotFolded,
                 _playerName = "player6",
                 _committed = 450,
                 _actedThisTurn = True,
@@ -301,7 +301,7 @@ spec = do
               { _pockets = Nothing,
                 _chips = 0,
                 _bet = 2000,
-                _playerState = SatIn NotFolded,
+                _playerStatus = SatIn NotFolded,
                 _playerName = "player1",
                 _committed = 2100,
                 _actedThisTurn = True,
@@ -344,12 +344,12 @@ spec = do
       newPositionToAct `shouldBe` expectedNewPositionToAct
 
   describe "SitOut" $
-    it "should set playerState to SatOut" $ do
+    it "should set playerStatus to SatOut" $ do
       let game =
             (street .~ PreDeal) . (players .~ [player1, player6]) $
               initialGameState'
           pName = "player6"
-          expectedPlayer = (playerState .~ SatOut) player6
+          expectedPlayer = (playerStatus .~ SatOut) player6
           newGame = sitOut pName game
           playerWhoChecked = newGame ^? players . ix 1
       playerWhoChecked `shouldBe` Just expectedPlayer

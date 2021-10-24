@@ -9,7 +9,7 @@ import Control.Monad.State ()
 import Data.Char (toLower)
 import Data.List (all, find, length, splitAt, tail, zip, zipWith)
 import qualified Data.List.Safe as Safe
-import Data.Maybe (fromJust)
+import Data.Maybe
 import Data.Monoid ((<>))
 import Data.Text (Text)
 import Poker.Game.Utils
@@ -35,7 +35,9 @@ getPosNextBlind currIx game@Game {..} = nextIx
     (nextIx, nextPlayer) =
       fromJust $
         find
-          (\(_, p@Player {..}) -> blindRequiredByPlayer game _playerName /= NoBlind)
+          ( \(_, p@Player {..}) ->
+              isJust $ blindRequiredByPlayer game _playerName
+          )
           (tail iplayers')
 
 haveRequiredBlindsBeenPosted :: Game -> Bool
@@ -43,28 +45,31 @@ haveRequiredBlindsBeenPosted game@Game {..} =
   all (== True) $
     zipWith
       ( \requiredBlind Player {..} -> case requiredBlind of
-          NoBlind -> True
-          Big -> fromCommittedChips _committed == _bigBlind
-          Small -> fromCommittedChips _committed == _smallBlind
+          Nothing -> True
+          Just BigBlind -> fromCommittedChips _committed == _bigBlind
+          Just SmallBlind -> fromCommittedChips _committed == _smallBlind
       )
       requiredBlinds
       _players
   where
     requiredBlinds = getRequiredBlinds game
 
-getRequiredBlinds :: Game -> [Blind]
+getRequiredBlinds :: Game -> [Maybe Blind]
 getRequiredBlinds game@Game {..}
   | _street /= PreDeal = []
   | otherwise = blindRequiredByPlayer game <$> getPlayerNames _players
 
 -- We use the list of required blinds to calculate if a player has posted
 -- chips sufficient to be "In" for this hand.
-activatePlayersWhenNoBlindNeeded :: [Blind] -> [Player] -> [Player]
+activatePlayersWhenNoBlindNeeded :: [Maybe Blind] -> [Player] -> [Player]
 activatePlayersWhenNoBlindNeeded = zipWith updatePlayer
   where
     updatePlayer blindReq Player {..} =
       Player
-        { _playerState = if blindReq == NoBlind then SatIn HasNotActedYet else _playerState,
+        { _playerStatus =
+            if isNothing blindReq
+              then InHand (CanAct Nothing)
+              else _playerStatus,
           ..
         }
 
@@ -84,16 +89,16 @@ getSmallBlindPosition playersSatIn dealerPos =
 -- if a player does not post their blind at the appropriate time then their state will be changed to
 -- SatOut signifying that they have a seat but are now sat out
 -- blind is required either if player is sitting in bigBlind or smallBlind position relative to dealer
--- or if their current playerState is set to Out
+-- or if their current playerStatus is set to Out
 -- If no blind is required for the player to remain In for the next hand then we will return Nothing
-blindRequiredByPlayer :: Game -> PlayerName -> Blind
+blindRequiredByPlayer :: Game -> PlayerName -> Maybe Blind
 blindRequiredByPlayer game playerName
   | -- SO IS THIS NEEDED FOR BOTS?? IT BREAKS NON BOTS
     --  | length (_players game) < 2 || _street game /= PreDeal = NoBlind
     playerPosition == smallBlindPos =
-    Small
-  | playerPosition == bigBlindPos = Big
-  | otherwise = NoBlind
+    Just SmallBlind
+  | playerPosition == bigBlindPos = Just BigBlind
+  | otherwise = Nothing
   where
     player = fromJust $ getGamePlayer game playerName
     playerNames = getPlayerNames (_players game)
