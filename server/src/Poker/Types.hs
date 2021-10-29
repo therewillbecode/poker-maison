@@ -7,6 +7,7 @@
 {-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE StandaloneKindSignatures #-}
@@ -15,9 +16,12 @@
 
 module Poker.Types where
 
+import Control.Category
 import Control.Lens (makeLenses)
 import Data.Aeson (FromJSON, ToJSON)
 import Data.Function (on)
+import Data.Machine
+import Data.Machine.Mealy
 import Data.Text (Text)
 import qualified Data.Text.Lazy as LT
 import Database.Persist.TH (derivePersistField)
@@ -273,6 +277,28 @@ unDeck (Deck cards) = cards
 -- hold between mealy machines. Also by modelling the game as a product
 -- of machines it is easier to build game generators in PBT as we can
 -- compose smaller generators which represent coherent rules of our game.
+
+-- Machine a demand driven input source like a Pipe or Conduit.
+-- A Machine from unlike a Pipe or Conduit support multiple inputs.
+-- A Machine is constructed from a Plan
+
+data AnErr = Err1
+
+data Output = Output (Either AnErr String)
+
+data BB = A | B
+
+-- | Plan to build a helloMachine
+helloPlan :: Plan (Either AnErr) BB Int
+helloPlan = do
+  -- awaits ::       k i -> Plan k     o i
+  a <- awaits $ Right A
+  yield a
+  return 1
+
+machinea :: (Monad m) => MachineT m Maybe BB
+machinea = construct helloPlan
+
 data Game = Game
   { _players :: [Player],
     _minBuyInChips :: Chips,
