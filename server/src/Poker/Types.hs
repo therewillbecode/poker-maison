@@ -16,7 +16,7 @@
 
 module Poker.Types where
 
-import Control.Category
+import Control.Category ()
 import Control.Lens (makeLenses)
 import Data.Aeson (FromJSON, ToJSON)
 import Data.Function (on)
@@ -27,7 +27,7 @@ import qualified Data.Text.Lazy as LT
 import Database.Persist.TH (derivePersistField)
 import GHC.Base (NonEmpty)
 import GHC.Generics (Generic)
-import System.Random
+import System.Random (Random)
 
 data Rank
   = Two
@@ -284,20 +284,131 @@ unDeck (Deck cards) = cards
 
 data AnErr = Err1
 
-data Output = Output (Either AnErr String)
+data ActivePlayer = PHasCalled | PHasFolded
 
-data BB = A | B
+-- | Plan to build a Player Machine
+-- validateMovePlan :: Plan (Either AnErr) PlayerMove (Either AnErr ())
+-- validateMovePlan = do
+--  -- awaits ::       k i -> Plan k     o i
+--  -- check is valisd
+--  a <- awaits $ Right Fold
+--  yield
+--  return 1
 
--- | Plan to build a helloMachine
-helloPlan :: Plan (Either AnErr) BB Int
-helloPlan = do
-  -- awaits ::       k i -> Plan k     o i
-  a <- awaits $ Right A
-  yield a
-  return 1
+-- player is a mealyT or mealy
 
-machinea :: (Monad m) => MachineT m Maybe BB
-machinea = construct helloPlan
+-- validateInGameMove is a pure machine (plan)
+
+-- validatePreGameMove (sitIn vs sitout etc is a pure machine ) plan
+
+-- validateBlinds move  (canpostblind is a pure machine ) plan
+
+------------------------- Game Stage -----------------------------------
+newtype FlopBoard = FlopCards (Card, Card, Card)
+
+newtype TurnBoard = TurnBoard (Card, Card, Card, Card)
+
+newtype RiverBoard = RiverBoard (Card, Card, Card, Card, Card)
+
+-- Moore machine since next state doesn't depend on input.
+-- Note, you don't have a game until both small and big blinds are posted.
+data GameStage
+  = PreFlop'
+  | Flop' FlopBoard
+  | Turn' TurnBoard
+  | River' RiverBoard
+  | Showdown' Winners
+
+preFlop :: Mealy BettingStatus GameStage
+preFlop = Mealy flop
+
+-- board is a moore
+flop :: BettingStatus -> (GameStage, Mealy BettingStatus GameStage)
+flop _ = (Flop' undefined, Mealy turn)
+
+-- | Transition function from state M1A
+turn :: BettingStatus -> (GameStage, Mealy BettingStatus GameStage)
+turn _ = (Turn' undefined, Mealy river)
+
+-- | Transition function from state M1B
+river :: BettingStatus -> (GameStage, Mealy BettingStatus GameStage)
+river _ = (River' undefined, Mealy showdown)
+
+showdown :: BettingStatus -> (GameStage, Mealy BettingStatus GameStage)
+showdown _ = (Showdown' undefined, preFlop)
+
+-- Turn the Mealy state machine into a process
+gameStageProcess :: Monad m => MachineT m (Is BettingStatus) GameStage
+gameStageProcess = auto preFlop
+
+-------------------------  Betting Status ---------------------------------
+-- this mealy machine is responsible for the rule denoting whether there
+-- is another player to act or not.
+data BettingStatus
+  = AwaitingAction' PlayerName
+  | NotAwaitingPlayerAction'
+  | EveryoneFolded'
+  | EveryoneAllIn'
+  deriving (Eq, Show, Ord, Read, Generic, ToJSON, FromJSON)
+
+initBettingStatus :: PlayerName -> Mealy Action (BettingStatus, Action)
+initBettingStatus pName =
+  unfoldMealy
+    ( \status action ->
+        (,) (status, action) $ nextBettingStatus status action
+    )
+    fstPlayerToAct
+  where
+    fstPlayerToAct = AwaitingAction' pName
+
+nextBettingStatus :: BettingStatus -> Action -> BettingStatus
+nextBettingStatus (AwaitingAction' _) _ = undefined
+nextBettingStatus s _ = s
+
+-- always the starting point for betting status. Betting
+-- status gets reset to this starting stateT
+-- every time the game stage is progressed.
+--awaitingPlayerAction :: Mealy Action BettingStatus
+--awaitingPlayerAction =
+--  Mealy nextBettingStatus AwaitingPlayerAction'
+
+------------------------ Player -------------------------------------
+-- current position toAct is a mealy
+
+-- timeout is a ?
+
+--playerMachine :: (Monad m) => MachineT m (Either AnErr) Player
+--playerMachine = construct helloPlan
+
+----------------------------------------------------------------------
+
+-- If you can check, that is you aren't facing an amount you have to call,
+-- then when you put in chips it is called a bet. If you have to put in
+-- some amount of chips to continue with the hand, and you want to
+-- increase the pot, it's called a raise. If it is confusing, just remember
+-- this old poker adage: "You can't raise yourself."
+--
+-- Mucking hands refers to a player choosing not to
+-- show his hands after everyone has folded to them. Essentially in
+-- this scenario mucking or showing refers to the decision to
+-- show ones hand or not to the table after everyone else has folded.
+data Action'
+  = SitDown' Player -- doesnt progress the game
+  | LeaveSeat'' -- doesnt progress the game
+  | PostBlind' Blind
+  | Fold'
+  | Call'
+  | Raise' Chips
+  | Check'
+  | Bet' Chips
+  | ShowHand'
+  | MuckHand'
+  | SitOut'
+  | SitIn'
+  | Timeout' -- REMOVE not an action
+  deriving (Show, Ord, Eq, Read, Generic, ToJSON, FromJSON)
+
+---------------------------------------------------------------
 
 data Game = Game
   { _players :: [Player],
