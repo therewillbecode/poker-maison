@@ -52,13 +52,13 @@ nextPlayerStatus :: Chips -> Action -> PlayerStatus -> PlayerStatus
 nextPlayerStatus (Chips 0) _ _ = InHand AllIn
 nextPlayerStatus _ Fold _ = InHand Folded
 nextPlayerStatus _ Check playerStatus =
-  InHand $ CanAct $ pure Checked
+  InHand $ CanAct Checked
 nextPlayerStatus _ Call playerStatus =
-  InHand $ CanAct $ pure $ MadeBet HasCalled
+  InHand $ CanAct $ MadeBet HasCalled
 nextPlayerStatus _ (Bet size) playerStatus =
-  InHand $ CanAct $ pure $ MadeBet $ HasBet size
+  InHand $ CanAct $ MadeBet $ HasBet size
 nextPlayerStatus _ (Raise size) playerStatus =
-  InHand $ CanAct $ pure $ MadeBet $ HasRaised size
+  InHand $ CanAct $ MadeBet $ HasRaised size
 nextPlayerStatus _ (PostBlind blind) playerStatus =
   SatIn HasPlayedLastHand $ PostedBlind blind
 nextPlayerStatus _ SitIn playerStatus =
@@ -76,7 +76,7 @@ updateMaxBet :: Chips -> Game -> Game
 updateMaxBet amount = maxBet %~ max amount
 
 markInForHand :: Player -> Player
-markInForHand = playerStatus .~ InHand (CanAct Nothing)
+markInForHand p = if _chips p == 0 then p else p & playerStatus .~ InHand NotActedYet  
 
 -- Will increment the game's current position to act to the next position
 -- where a blind is required. Skipping players that do not have to post blinds

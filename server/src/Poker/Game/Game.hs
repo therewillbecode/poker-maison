@@ -22,7 +22,7 @@ dealToPlayers :: Deck -> [Player] -> (Deck, [Player])
 dealToPlayers =
   mapAccumR
     ( \deck player ->
-        if player ^. playerStatus == InHand (CanAct Nothing)
+        if player ^. playerStatus == InHand NotActedYet -- check this weird
           then
             let (pocketCs, remainingDeck) = dealPockets deck
              in (remainingDeck, (pockets ?~ pocketCs) player)
@@ -103,7 +103,7 @@ nextHandPlayers = players %~ (<$>) nextHandPlayer
 nextStreetStatus :: PlayerStatus -> PlayerStatus
 nextStreetStatus (InHand AllIn) = InHand AllIn
 nextStreetStatus (InHand Folded) = InHand Folded
-nextStreetStatus (InHand _) = InHand $ CanAct Nothing
+nextStreetStatus (InHand _) = InHand NotActedYet 
 nextStreetStatus s = s
 
 nextStreetPlayers :: Game -> Game

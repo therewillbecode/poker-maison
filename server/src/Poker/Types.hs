@@ -164,7 +164,8 @@ data Blind
   deriving (Show, Eq, Read, Ord, Generic, ToJSON, FromJSON)
 
 data PlayerInHandStatus
-  = CanAct (Maybe LastBetOrCheck)
+  = NotActedYet
+  | CanAct BetOrChecked
   | Folded
   | AllIn
   deriving (Eq, Show, Read, Ord, Generic, ToJSON, FromJSON)
@@ -178,24 +179,16 @@ data HasBet = HasCalled | HasBet Chips | HasRaised Chips
 --  HasBet n -> n
 --  HasRaised n -> n
 
-data LastBetOrCheck = MadeBet HasBet | Checked
+data BetOrChecked = MadeBet HasBet | Checked
   deriving (Eq, Show, Read, Ord, Generic, ToJSON, FromJSON)
 
-satIn :: PlayerStatus -> Bool
-satIn (SatIn _ _) = True
-satIn _ = False
 
-data PlayerStatus
-  = SatOut
-  | SatIn PlayedLastHand HasPostedBlind
-  | InHand PlayerInHandStatus
-  deriving (Eq, Show, Read, Ord, Generic, ToJSON, FromJSON)
 
 data Player = Player
   { _pockets :: Maybe PocketCards,
     _chips :: Chips,
     _bet :: Chips,
-    _playerStatus :: PlayerStatus,
+--    _playerStatus :: PlayerStatus,
     _committed :: CommittedChips,
     _playerName :: Text,
     _possibleActions :: [Action]
@@ -284,7 +277,31 @@ unDeck (Deck cards) = cards
 
 data AnErr = Err1
 
-data ActivePlayer = PHasCalled | PHasFolded
+data CanAct = NotActedThisTurn | ActedThisTurn BetOrChecked 
+
+data CannotAct = AlreadyAllIn | HasFolded 
+
+
+data InHandPlayerCanAct = InHandPlayerCanAct {
+  _canActPlayer :: Player,
+  _canActPlayerStatus :: CanAct
+} 
+
+data InHandPlayerCannotAct = InHandPlayerCannotAct {
+  _cannotActPlayer :: Player,
+  _cannotActPlayerStatus :: CannotAct
+} 
+
+
+satIn :: PlayerStatus -> Bool
+satIn (SatIn _ _) = True
+satIn _ = False
+
+data PlayerStatus
+  = SatOut
+  | SatIn PlayedLastHand HasPostedBlind
+  | InHand PlayerInHandStatus
+  deriving (Eq, Show, Read, Ord, Generic, ToJSON, FromJSON)
 
 -- | Plan to build a Player Machine
 -- validateMovePlan :: Plan (Either AnErr) PlayerMove (Either AnErr ())

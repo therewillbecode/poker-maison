@@ -68,7 +68,7 @@ activatePlayersWhenNoBlindNeeded = zipWith updatePlayer
       Player
         { _playerStatus =
             if isNothing blindReq
-              then InHand (CanAct Nothing)
+              then if _chips == 0 then InHand AllIn else InHand NotActedYet
               else _playerStatus,
           ..
         }

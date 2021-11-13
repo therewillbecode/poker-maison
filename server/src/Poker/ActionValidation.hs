@@ -31,8 +31,14 @@ import Poker.Game.Utils
   )
 import Poker.Types
 
--- TODO remove sitdowm from playerMoves and then
--- can use  checkPlayerSatAtTable on validateAction
+-- TODO -- We should be deeply suspicious of the type  m ()
+-- as we are losing info and it is easy to forget to validate actions.
+-- Instead the validation should be done behind an abstract data type
+-- (think smart consstructyor) such as
+-- mkBet :: Game -> Amount -> Player -> Either BetErr Bet
+--
+-- Another benefit is that instead of a monolothic game error we
+-- now hae BetErr FoldErr which is much nicer.
 validateAction :: Game -> PlayerName -> Action -> Either GameErr ()
 validateAction game@Game {..} name' = \case
   PostBlind blind ->
