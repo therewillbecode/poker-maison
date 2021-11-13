@@ -96,7 +96,7 @@ import Types ()
 import Prelude
 
 delayThenSeatPlayer ::
-  ConnectionString -> Int -> TVar ServerState -> Player -> IO ()
+  ConnectionString -> Int -> TVar ServerState -> PlayerInfo -> IO ()
 delayThenSeatPlayer dbConn delayDuration s p = do
   print "delaying before sit down bot ... "
   _ <- threadDelay delayDuration
@@ -104,19 +104,19 @@ delayThenSeatPlayer dbConn delayDuration s p = do
   sitDownBot dbConn p s
   print "... done . bot sat down "
 
-bot1 :: Player
+bot1 :: PlayerInfo
 bot1 = initPlayer "1@1" 2000
 
-bot2 :: Player
+bot2 :: PlayerInfo
 bot2 = initPlayer "2@2" 2000
 
-bot3 :: Player
+bot3 :: PlayerInfo
 bot3 = initPlayer "3@3" 2000
 
-bot4 :: Player
+bot4 :: PlayerInfo
 bot4 = initPlayer "101@101" 2000
 
-bot5 :: Player
+bot5 :: PlayerInfo
 bot5 = initPlayer "102@102" 2000
 
 startBotActionLoops ::
@@ -183,8 +183,8 @@ runBotAction dbConn serverStateTVar g pName = do
     tableName = "Black"
     chipsToSit = 2000
 
-sitDownBot :: ConnectionString -> Player -> TVar ServerState -> IO ()
-sitDownBot dbConn player@Player {..} serverStateTVar = do
+sitDownBot :: ConnectionString -> PlayerInfo -> TVar ServerState -> IO ()
+sitDownBot dbConn player@PlayerInfo {..} serverStateTVar = do
   s@ServerState {..} <- readTVarIO serverStateTVar
   let gameMove = SitDown player
   case M.lookup tableName $ unLobby lobby of

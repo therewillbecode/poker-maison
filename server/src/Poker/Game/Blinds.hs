@@ -13,11 +13,6 @@ import Data.Maybe
 import Data.Monoid ((<>))
 import Data.Text (Text)
 import Poker.Game.Utils
-  ( getGamePlayer,
-    getPlayerNames,
-    getPlayerPosition,
-    modInc,
-  )
 import Poker.Types
 import Text.Read (readMaybe)
 import Prelude
@@ -35,8 +30,8 @@ getPosNextBlind currIx game@Game {..} = nextIx
     (nextIx, nextPlayer) =
       fromJust $
         find
-          ( \(_, p@Player {..}) ->
-              isJust $ blindRequiredByPlayer game _playerName
+          ( \(_, p) ->
+              isJust $ blindRequiredByPlayer game $ getPlayerName p
           )
           (tail iplayers')
 
@@ -44,10 +39,10 @@ haveRequiredBlindsBeenPosted :: Game -> Bool
 haveRequiredBlindsBeenPosted game@Game {..} =
   all (== True) $
     zipWith
-      ( \requiredBlind Player {..} -> case requiredBlind of
+      ( \requiredBlind p -> case requiredBlind of
           Nothing -> True
-          Just BigBlind -> fromCommittedChips _committed == _bigBlind
-          Just SmallBlind -> fromCommittedChips _committed == _smallBlind
+          Just BigBlind -> fromCommittedChips (getCommitted p) == _bigBlind
+          Just SmallBlind -> fromCommittedChips (getCommitted p) == _smallBlind
       )
       requiredBlinds
       _players
@@ -59,19 +54,24 @@ getRequiredBlinds game@Game {..}
   | _street /= PreDeal = []
   | otherwise = blindRequiredByPlayer game <$> getPlayerNames _players
 
+
 -- We use the list of required blinds to calculate if a player has posted
 -- chips sufficient to be "In" for this hand.
 activatePlayersWhenNoBlindNeeded :: [Maybe Blind] -> [Player] -> [Player]
 activatePlayersWhenNoBlindNeeded = zipWith updatePlayer
   where
-    updatePlayer blindReq Player {..} =
-      Player
-        { _playerStatus =
-            if isNothing blindReq
-              then if _chips == 0 then InHand AllIn else InHand NotActedYet
-              else _playerStatus,
-          ..
-        }
+    updatePlayer blindReq player =
+      PreHandP $ NoBlindNeededP $
+        NoBlindRequiredPlayer
+          { 
+            _playerName = getPlayerName player,
+             _chips = getChips player, ..}
+      --  { _playerStatus =
+      --      if isNothing blindReq
+      --        then if _chips == 0 then InHand AllIn else InHand NotActedYet
+      --        else _playerStatus,
+     --     ..
+      --  }
 
 -- Sets player state to in if they don't need to post blind
 updatePlayersInHand :: Game -> Game

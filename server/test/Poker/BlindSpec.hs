@@ -29,7 +29,7 @@ import Poker.Types
   ( Blind (BigBlind, NoBlind, SmallBlind),
     Deck (Deck),
     Game (..),
-    Player (..),
+    PlayerInfo (..),
     PlayerState (..),
     SatInState (..),
     Street (PreDeal),
@@ -55,7 +55,7 @@ twoPlayerGame :: Game
 twoPlayerGame =
   Game
     { _players =
-        [ Player
+        [ PlayerInfo
             { _pockets = Nothing,
               _chips = 1950,
               _bet = 50,
@@ -65,7 +65,7 @@ twoPlayerGame =
               _actedThisTurn = False,
               _possibleActions = []
             },
-          Player
+          PlayerInfo
             { _pockets = Nothing,
               _chips = 2000,
               _bet = 0,
@@ -96,7 +96,7 @@ twoPlayerGameAllBlindsPosted :: Game
 twoPlayerGameAllBlindsPosted =
   Game
     { _players =
-        [ Player
+        [ PlayerInfo
             { _pockets = Nothing,
               _chips = 1950,
               _bet = 25,
@@ -106,7 +106,7 @@ twoPlayerGameAllBlindsPosted =
               _actedThisTurn = True,
               _possibleActions = []
             },
-          Player
+          PlayerInfo
             { _pockets = Nothing,
               _chips = 2000,
               _bet = 50,
@@ -137,7 +137,7 @@ threePlayerGame :: Game
 threePlayerGame =
   Game
     { _players =
-        [ Player
+        [ PlayerInfo
             { _pockets = Nothing,
               _chips = 1950,
               _bet = 0,
@@ -147,7 +147,7 @@ threePlayerGame =
               _actedThisTurn = False,
               _possibleActions = []
             },
-          Player
+          PlayerInfo
             { _pockets = Nothing,
               _chips = 2000,
               _bet = 0,
@@ -157,7 +157,7 @@ threePlayerGame =
               _actedThisTurn = False,
               _possibleActions = []
             },
-          Player
+          PlayerInfo
             { _pockets = Nothing,
               _chips = 2000,
               _bet = 0,
@@ -188,7 +188,7 @@ threePlayerGameAllBlindsPosted :: Game
 threePlayerGameAllBlindsPosted =
   Game
     { _players =
-        [ Player
+        [ PlayerInfo
             { _pockets = Nothing,
               _chips = 1950,
               _bet = 0,
@@ -198,7 +198,7 @@ threePlayerGameAllBlindsPosted =
               _actedThisTurn = False,
               _possibleActions = []
             },
-          Player
+          PlayerInfo
             { _pockets = Nothing,
               _chips = 2000,
               _bet = 25,
@@ -208,7 +208,7 @@ threePlayerGameAllBlindsPosted =
               _actedThisTurn = False,
               _possibleActions = []
             },
-          Player
+          PlayerInfo
             { _pockets = Nothing,
               _chips = 2000,
               _bet = 50,
@@ -238,13 +238,13 @@ threePlayerGameAllBlindsPosted =
 twoPlayerNames :: [Text]
 twoPlayerNames = getGamePlayerNames twoPlayerGame
 
-twoPlayers :: [Player]
+twoPlayers :: [PlayerInfo]
 twoPlayers = _players twoPlayerGame
 
 threePlayerNames :: [Text]
 threePlayerNames = getGamePlayerNames threePlayerGame
 
-threePlayers :: [Player]
+threePlayers :: [PlayerInfo]
 threePlayers = _players threePlayerGame
 
 prop_requiredBlinds_always_valid_arrangement_for_2_plyrs :: Property
@@ -375,19 +375,19 @@ spec = do
       "should set players that are not in blind position to SatIn NotFolded for three players"
       $ do
         let newGame = updatePlayersInHand threePlayerGameAllBlindsPosted
-        let playerStates = (\Player {..} -> _playerStatus) <$> _players newGame
+        let playerStates = (\PlayerInfo {..} -> _playerStatus) <$> _players newGame
         playerStates `shouldBe` [SatIn NotFolded, SatIn NotFolded, SatIn NotFolded]
 
     it
       "should return correct player states for two players when all blinds posted"
       $ do
         let newGame = updatePlayersInHand twoPlayerGameAllBlindsPosted
-        let playerStates = (\Player {..} -> _playerStatus) <$> _players newGame
+        let playerStates = (\PlayerInfo {..} -> _playerStatus) <$> _players newGame
         playerStates `shouldBe` [SatIn NotFolded, SatIn NotFolded]
 
     it
       "should return correct player states for two players when not all blinds posted"
       $ do
         let newGame = updatePlayersInHand twoPlayerGame
-        let playerStates = (\Player {..} -> _playerStatus) <$> _players newGame
+        let playerStates = (\PlayerInfo {..} -> _playerStatus) <$> _players newGame
         playerStates `shouldBe` [SatIn NotFolded, SatOut]

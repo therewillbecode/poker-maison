@@ -13,11 +13,15 @@
 {-# LANGUAGE StandaloneKindSignatures #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE MultiParamTypeClasses  #-}
+{-# LANGUAGE FunctionalDependencies #-}
+{-# LANGUAGE FlexibleInstances  #-}
 
 module Poker.Types where
 
 import Control.Category ()
-import Control.Lens (makeLenses)
+import Control.Lens 
 import Data.Aeson (FromJSON, ToJSON)
 import Data.Function (on)
 import Data.Machine
@@ -184,17 +188,6 @@ data BetOrChecked = MadeBet HasBet | Checked
 
 
 
-data Player = Player
-  { _pockets :: Maybe PocketCards,
-    _chips :: Chips,
-    _bet :: Chips,
---    _playerStatus :: PlayerStatus,
-    _committed :: CommittedChips,
-    _playerName :: Text,
-    _possibleActions :: [Action]
-  }
-  deriving (Eq, Show, Ord, Read, Generic, ToJSON, FromJSON)
-
 --data HasActedThisStreet = HasActed | HasNotActed
 --  deriving (Eq, Show, Ord, Read, Generic, ToJSON, FromJSON)
 
@@ -218,7 +211,7 @@ data Street
   | Showdown
   deriving (Eq, Ord, Show, Read, Bounded, Enum, Generic, ToJSON, FromJSON)
 
--- Highest ranking hand for a given Player that is in the game
+-- Highest ranking hand for a given PlayerInfo that is in the game
 -- during the Showdown stage of the game (last stage)
 newtype PlayerShowdownHand
   = PlayerShowdownHand [Card]
@@ -249,7 +242,7 @@ unDeck (Deck cards) = cards
 
 -- Idea - Could generalise the project to become
 -- a DSL for card game servers.
--- (Game [Card]) [Player] actions
+-- (Game [Card]) [PlayerInfo] actions
 
 -- With card games the rulechecking gets pretty nasty.
 --
@@ -276,34 +269,97 @@ unDeck (Deck cards) = cards
 -- A Machine is constructed from a Plan
 
 data AnErr = Err1
-
-data CanAct = NotActedThisTurn | ActedThisTurn BetOrChecked 
-
-data CannotAct = AlreadyAllIn | HasFolded 
+   deriving (Eq, Show, Read, Ord, Generic, ToJSON, FromJSON)
 
 
-data InHandPlayerCanAct = InHandPlayerCanAct {
-  _canActPlayer :: Player,
-  _canActPlayerStatus :: CanAct
-} 
 
-data InHandPlayerCannotAct = InHandPlayerCannotAct {
-  _cannotActPlayer :: Player,
-  _cannotActPlayerStatus :: CannotAct
-} 
-
-
-satIn :: PlayerStatus -> Bool
-satIn (SatIn _ _) = True
-satIn _ = False
-
-data PlayerStatus
-  = SatOut
-  | SatIn PlayedLastHand HasPostedBlind
-  | InHand PlayerInHandStatus
+data Player = 
+    PreHandP PreHandPlayer
+  | InHandP InHandPlayer
   deriving (Eq, Show, Read, Ord, Generic, ToJSON, FromJSON)
 
--- | Plan to build a Player Machine
+
+
+data CanActPlayer = CanActPlayer
+  { _playerName :: Text,
+   _status :: PlayerStatus,
+   _pockets :: Maybe PocketCards,
+    _chips :: Chips,
+   _currBet :: Chips,
+    _committed :: CommittedChips,
+    _possibleActions :: [Action]
+  }   deriving (Eq, Show, Read, Ord, Generic, ToJSON, FromJSON)
+
+data PlayerStatus = NotActedThisTurn | ActedThisTurn BetOrChecked 
+   deriving (Eq, Show, Read, Ord, Generic, ToJSON, FromJSON)
+
+--data CannotAct = AlreadyAllIn | HasFolded    
+ -- deriving (Eq, Show, Read, Ord, Generic, ToJSON, FromJSON)
+
+data AllInPlayer = AllInPlayer
+ { _playerName :: Text,
+   _pockets :: Maybe PocketCards,
+   _currBet :: Chips,
+    _committed :: CommittedChips
+  }   deriving (Eq, Show, Read, Ord, Generic, ToJSON, FromJSON)
+
+data FoldedPlayer = FoldedPlayer
+ { _playerName :: Text,
+   _pockets :: Maybe PocketCards,
+   _chips :: Chips,
+   _currBet :: Chips,
+   _committed :: CommittedChips
+  }   deriving (Eq, Show, Read, Ord, Generic, ToJSON, FromJSON)
+
+data InHandPlayer = 
+     CanActP CanActPlayer
+   | AllInP AllInPlayer
+   | FoldedP FoldedPlayer
+   deriving (Eq, Show, Read, Ord, Generic, ToJSON, FromJSON)
+
+data PreHandPlayer =
+   SatOutP SatOutPlayer
+  | NeedsBlindP BlindRequiredPlayer
+  | NoBlindNeededP NoBlindRequiredPlayer
+  | HasPostedBlindP HasPostedBlindPlayer
+   deriving (Eq, Show, Read, Ord, Generic, ToJSON, FromJSON)
+
+data SatOutPlayer = SatOutPlayer {
+  _playerName :: Text,
+  _chips :: Chips
+}  deriving (Eq, Show, Read, Ord, Generic, ToJSON, FromJSON)
+
+data HasPostedBlindPlayer = HasPostedBlindPlayer {
+  _playerName :: Text,
+  _chips :: Chips,
+  _committed ::CommittedChips,
+  _hasPostedBlind :: Blind
+}  deriving (Eq, Show, Read, Ord, Generic, ToJSON, FromJSON)
+
+data BlindRequiredPlayer = BlindRequiredPlayer {
+  _playerName :: Text,
+  _chips :: Chips,
+  _blindRequired :: Blind
+}  deriving (Eq, Show, Read, Ord, Generic, ToJSON, FromJSON)
+
+data NoBlindRequiredPlayer = NoBlindRequiredPlayer {
+  _playerName :: Text,
+  _chips :: Chips
+}  deriving (Eq, Show, Read, Ord, Generic, ToJSON, FromJSON)
+
+
+
+--satIn :: Player -> Bool
+--satIn (SatIn _) = True
+--satIn _ = False
+
+
+--satOut :: Player -> Bool
+--satOut (SatOut _) = True
+--satOut _ = False
+
+
+-- | Plan to build a PlayerInfo Machine
 -- validateMovePlan :: Plan (Either AnErr) PlayerMove (Either AnErr ())
 -- validateMovePlan = do
 --  -- awaits ::       k i -> Plan k     o i
@@ -389,12 +445,12 @@ nextBettingStatus s _ = s
 --awaitingPlayerAction =
 --  Mealy nextBettingStatus AwaitingPlayerAction'
 
------------------------- Player -------------------------------------
+------------------------ PlayerInfo -------------------------------------
 -- current position toAct is a mealy
 
 -- timeout is a ?
 
---playerMachine :: (Monad m) => MachineT m (Either AnErr) Player
+--playerMachine :: (Monad m) => MachineT m (Either AnErr) PlayerInfo
 --playerMachine = construct helloPlan
 
 ----------------------------------------------------------------------
@@ -410,7 +466,7 @@ nextBettingStatus s _ = s
 -- this scenario mucking or showing refers to the decision to
 -- show ones hand or not to the table after everyone else has folded.
 data Action'
-  = SitDown' Player -- doesnt progress the game
+  = SitDown' PreHandPlayer -- doesnt progress the game
   | LeaveSeat'' -- doesnt progress the game
   | PostBlind' Blind
   | Fold'
@@ -495,7 +551,7 @@ data PlayerAction = PlayerAction
 -- this scenario mucking or showing refers to the decision to
 -- show ones hand or not to the table after everyone else has folded.
 data Action
-  = SitDown Player -- doesnt progress the game
+  = SitDown PreHandPlayer -- doesnt progress the game
   | LeaveSeat' -- doesnt progress the game
   | PostBlind Blind
   | Fold
@@ -560,12 +616,29 @@ newtype CurrentPlayerToActErr
   = CurrentPlayerToActErr PlayerName
   deriving (Show, Eq, Read, Ord, Generic, ToJSON, FromJSON)
 
+makeFieldsNoPrefix ''FoldedPlayer
+makeFieldsNoPrefix ''AllInPlayer
+makeFieldsNoPrefix ''CanActPlayer
+
+--makeLenses ''FoldedPlayer
+--makeLenses ''CanActPlayer
+--makeLenses ''AllInPlayer
+
+makeFieldsNoPrefix ''SatOutPlayer
+makeFieldsNoPrefix ''HasPostedBlindPlayer
+makeFieldsNoPrefix ''BlindRequiredPlayer
+makeFieldsNoPrefix ''NoBlindRequiredPlayer
+
+--makeLenses ''SatOutPlayer
+--makeLenses ''HasPostedBlindPlayer
+--makeLenses ''BlindRequiredPlayer
+--makeLenses ''NoBlindRequiredPlayer
+
 makeLenses ''Player
-
+makeLenses ''InHandPlayer
+makeLenses ''PreHandPlayer
 makeLenses ''PlayerAction
-
 makeLenses ''Game
-
 makeLenses ''Winners
 
 -- Due to the GHC Stage Restriction, the call to the Template Haskell function derivePersistField must be
@@ -573,11 +646,7 @@ makeLenses ''Winners
 -- Perform marshaling using the Show and Read
 -- instances of the datatype to string field in db
 derivePersistField "Player"
-
 derivePersistField "Winners"
-
 derivePersistField "HandRank"
-
 derivePersistField "Street"
-
 derivePersistField "Card"

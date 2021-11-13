@@ -35,7 +35,7 @@ import Poker.Types
 -- as we are losing info and it is easy to forget to validate actions.
 -- Instead the validation should be done behind an abstract data type
 -- (think smart consstructyor) such as
--- mkBet :: Game -> Amount -> Player -> Either BetErr Bet
+-- mkBet :: Game -> Amount -> PlayerInfo -> Either BetErr Bet
 --
 -- Another benefit is that instead of a monolothic game error we
 -- now hae BetErr FoldErr which is much nicer.
@@ -104,7 +104,7 @@ isPlayerActingOutOfTurn game@Game {..} name
   where
     gamePlayerNames = getGamePlayerNames game
     numberOfPlayersSatIn =
-      length $ filter (\Player {..} -> _playerStatus /= InHand Folded) _players
+      length $ filter (\PlayerInfo {..} -> _playerStatus /= InHand Folded) _players
     currPosToActOutOfBounds =
       maybe False ((length _players - 1) <) _currentPosToAct
     isNewGame = _street == PreDeal && isNothing _currentPosToAct
@@ -174,7 +174,7 @@ canCheck name Game {..}
       InvalidMove name CannotCheckShouldCallRaiseOrFold
   | otherwise = Right ()
   where
-    Player {..} = fromJust $ find (\Player {..} -> _playerName == name) _players
+    PlayerInfo {..} = fromJust $ find (\PlayerInfo {..} -> _playerName == name) _players
 
 canFold :: PlayerName -> Game -> Either GameErr ()
 canFold name Game {..}
@@ -197,8 +197,8 @@ canCall name game@Game {..}
     chipCount = _chips p
     amountNeededToCall = _maxBet - _bet p
 
-canSit :: Player -> Game -> Either GameErr ()
-canSit player@Player {..} game@Game {..}
+canSit :: PlayerInfo -> Game -> Either GameErr ()
+canSit player@PlayerInfo {..} game@Game {..}
   | _street /= PreDeal =
     Left $
       InvalidMove _playerName CannotSitDownOutsidePreDeal
@@ -236,8 +236,8 @@ canLeaveSeat playerName game@Game {..}
   | playerName `notElem` getPlayerNames _players = Left $ NotAtTable playerName
   | otherwise = Right ()
 
-canJoinWaitList :: Player -> Game -> Either GameErr ()
-canJoinWaitList player@Player {..} game@Game {..}
+canJoinWaitList :: PlayerInfo -> Game -> Either GameErr ()
+canJoinWaitList player@PlayerInfo {..} game@Game {..}
   | _playerName `elem` _waitlist = Left $ AlreadyOnWaitlist _playerName
   | otherwise = Right ()
 
@@ -248,7 +248,7 @@ validateBlindAction game@Game {..} playerName blind
       InvalidMove playerName CannotPostBlindOutsidePreDeal
   | otherwise = case getGamePlayer game playerName of
     Nothing -> Left $ PlayerNotAtTable playerName
-    Just p@Player {..} -> case blindRequired of
+    Just p@PlayerInfo {..} -> case blindRequired of
       Nothing -> Left $ InvalidMove playerName BlindNotRequired
       Just SmallBlind ->
         if blind == SmallBlind

@@ -48,8 +48,8 @@ import Poker.Types
         NotEnoughChipsForAction,
         OutOfTurn
       ),
-    Player
-      ( Player,
+    PlayerInfo
+      ( PlayerInfo,
         _actedThisTurn,
         _bet,
         _chips,
@@ -92,9 +92,9 @@ import Test.Hspec.Hedgehog
 initialGameState' :: Game
 initialGameState' = initialGameState initialDeck
 
-player1 :: Player
+player1 :: PlayerInfo
 player1 =
-  Player
+  PlayerInfo
     { _pockets = Nothing,
       _chips = 2000,
       _bet = 200,
@@ -105,9 +105,9 @@ player1 =
       _possibleActions = []
     }
 
-player2 :: Player
+player2 :: PlayerInfo
 player2 =
-  Player
+  PlayerInfo
     { _pockets = Nothing,
       _chips = 2000,
       _bet = 0,
@@ -118,9 +118,9 @@ player2 =
       _possibleActions = []
     }
 
-player3 :: Player
+player3 :: PlayerInfo
 player3 =
-  Player
+  PlayerInfo
     { _pockets = Nothing,
       _chips = 300,
       _bet = 0,
@@ -131,9 +131,9 @@ player3 =
       _possibleActions = []
     }
 
-player4 :: Player
+player4 :: PlayerInfo
 player4 =
-  Player
+  PlayerInfo
     { _pockets = Nothing,
       _chips = 2000,
       _bet = 0,
@@ -144,9 +144,9 @@ player4 =
       _possibleActions = []
     }
 
-player5 :: Player
+player5 :: PlayerInfo
 player5 =
-  Player
+  PlayerInfo
     { _pockets = Nothing,
       _chips = 2000,
       _bet = 0,
@@ -157,10 +157,10 @@ player5 =
       _possibleActions = []
     }
 
-playerFixtures :: [Player]
+playerFixtures :: [PlayerInfo]
 playerFixtures = [player1, player2, player3, player4]
 
-playerFixtures2 :: [Player]
+playerFixtures2 :: [PlayerInfo]
 playerFixtures2 = [player3, player5]
 
 callAllInHeadsUpFixture :: Game
@@ -181,7 +181,7 @@ callAllInHeadsUpFixture =
       _waitlist = [],
       _deck = Deck [],
       _players =
-        [ Player
+        [ PlayerInfo
             { _pockets = Nothing,
               _chips = 3500,
               _bet = 0,
@@ -191,7 +191,7 @@ callAllInHeadsUpFixture =
               _actedThisTurn = True,
               _possibleActions = []
             },
-          Player
+          PlayerInfo
             { _pockets = Nothing,
               _chips = 0,
               _bet = 2400,
@@ -222,7 +222,7 @@ preDealHeadsUpFixture =
       _waitlist = [],
       _deck = Deck [],
       _players =
-        [ Player
+        [ PlayerInfo
             { _pockets = Nothing,
               _chips = 3000,
               _bet = 0,
@@ -232,7 +232,7 @@ preDealHeadsUpFixture =
               _actedThisTurn = False,
               _possibleActions = []
             },
-          Player
+          PlayerInfo
             { _pockets = Nothing,
               _chips = 2950,
               _bet = 50,
@@ -263,7 +263,7 @@ turnGameThreePlyrs =
       _waitlist = [],
       _deck = Deck [],
       _players =
-        [ Player
+        [ PlayerInfo
             { _pockets = Nothing,
               _chips = 2197,
               _bet = 0,
@@ -273,7 +273,7 @@ turnGameThreePlyrs =
               _actedThisTurn = False,
               _possibleActions = []
             },
-          Player
+          PlayerInfo
             { _pockets = Nothing,
               _chips = 1847,
               _bet = 0,
@@ -283,7 +283,7 @@ turnGameThreePlyrs =
               _actedThisTurn = False,
               _possibleActions = []
             },
-          Player
+          PlayerInfo
             { _pockets = Nothing,
               _chips = 2072,
               _bet = 0,
@@ -297,7 +297,7 @@ turnGameThreePlyrs =
     }
 
 spec = do
-  describe "Player Acting in Turn Validation" $ do
+  describe "PlayerInfo Acting in Turn Validation" $ do
     let game =
           (currentPosToAct ?~ 0)
             . (street .~ PreFlop)

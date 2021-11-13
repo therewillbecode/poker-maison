@@ -17,9 +17,9 @@ import Poker.Types
 import Test.Hspec (SpecWith, describe, it)
 import Test.Hspec.Hedgehog (forAll, hedgehog, (===))
 
-player1 :: Player
+player1 :: PlayerInfo
 player1 =
-  Player
+  PlayerInfo
     { _pockets =
         Just $
           PocketCards
@@ -34,9 +34,9 @@ player1 =
       _possibleActions = []
     }
 
-player2 :: Player
+player2 :: PlayerInfo
 player2 =
-  Player
+  PlayerInfo
     { _pockets =
         Just $
           PocketCards
@@ -51,9 +51,9 @@ player2 =
       _possibleActions = []
     }
 
-player3 :: Player
+player3 :: PlayerInfo
 player3 =
-  Player
+  PlayerInfo
     { _pockets = Nothing,
       _chips = 2000,
       _bet = 0,
@@ -64,9 +64,9 @@ player3 =
       _possibleActions = []
     }
 
-player4 :: Player
+player4 :: PlayerInfo
 player4 =
-  Player
+  PlayerInfo
     { _pockets = Nothing,
       _chips = 2000,
       _bet = 0,
@@ -77,9 +77,9 @@ player4 =
       _possibleActions = []
     }
 
-player5 :: Player
+player5 :: PlayerInfo
 player5 =
-  Player
+  PlayerInfo
     { _pockets =
         Just $
           PocketCards
@@ -94,7 +94,7 @@ player5 =
       _possibleActions = []
     }
 
-initPlayers :: [Player]
+initPlayers :: [PlayerInfo]
 initPlayers = [player1, player2, player3]
 
 spec :: SpecWith ()

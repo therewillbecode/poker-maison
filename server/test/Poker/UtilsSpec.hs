@@ -15,7 +15,7 @@ import Poker.Game.Utils (initialDeck, modInc)
 import Poker.Poker (initialGameState)
 import Poker.Types
   ( Game,
-    Player (..),
+    PlayerInfo (..),
     PlayerState (..),
     SatInState (..),
     Street (PreFlop),
@@ -36,9 +36,9 @@ import Test.Hspec.Hedgehog
 initialGameState' :: Game
 initialGameState' = initialGameState initialDeck
 
-player1 :: Player
+player1 :: PlayerInfo
 player1 =
-  Player
+  PlayerInfo
     { _pockets = Nothing,
       _chips = 2000,
       _bet = 0,
@@ -49,9 +49,9 @@ player1 =
       _possibleActions = []
     }
 
-player2 :: Player
+player2 :: PlayerInfo
 player2 =
-  Player
+  PlayerInfo
     { _pockets = Nothing,
       _chips = 2000,
       _bet = 0,
@@ -62,9 +62,9 @@ player2 =
       _possibleActions = []
     }
 
-player3 :: Player
+player3 :: PlayerInfo
 player3 =
-  Player
+  PlayerInfo
     { _pockets = Nothing,
       _chips = 2000,
       _bet = 0,
@@ -75,9 +75,9 @@ player3 =
       _possibleActions = []
     }
 
-player4 :: Player
+player4 :: PlayerInfo
 player4 =
-  Player
+  PlayerInfo
     { _pockets = Nothing,
       _chips = 2000,
       _bet = 0,
@@ -88,9 +88,9 @@ player4 =
       _possibleActions = []
     }
 
-player5 :: Player
+player5 :: PlayerInfo
 player5 =
-  Player
+  PlayerInfo
     { _pockets = Nothing,
       _chips = 4000,
       _bet = 4000,
@@ -101,9 +101,9 @@ player5 =
       _possibleActions = []
     }
 
-player6 :: Player
+player6 :: PlayerInfo
 player6 =
-  Player
+  PlayerInfo
     { _pockets = Nothing,
       _chips = 2000,
       _bet = 200,

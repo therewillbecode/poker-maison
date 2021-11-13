@@ -175,11 +175,11 @@ leaveSeatHandler leaveSeatMove@(LeaveSeat tableName) = do
             Right newGame -> do
               let maybePlayer =
                     find
-                      (\Player {..} -> unUsername username == _playerName)
+                      (\PlayerInfo {..} -> unUsername username == _playerName)
                       (_players game)
               case maybePlayer of
                 Nothing -> return $ Left $ NotSatInGame tableName
-                Just Player {_chips = chipsInPlay, ..} -> do
+                Just PlayerInfo {_chips = chipsInPlay, ..} -> do
                   liftIO $
                     dbWithdrawChipsFromPlay
                       dbConn

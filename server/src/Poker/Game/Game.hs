@@ -22,7 +22,7 @@ dealToPlayers :: Deck -> [Player] -> (Deck, [Player])
 dealToPlayers =
   mapAccumR
     ( \deck player ->
-        if player ^. playerStatus == InHand NotActedYet -- check this weird
+        if shouldDeal player
           then
             let (pocketCs, remainingDeck) = dealPockets deck
              in (remainingDeck, (pockets ?~ pocketCs) player)
@@ -63,6 +63,7 @@ getNextStreet _street = succ _street
 
 initPlayer :: Text -> Int -> Player
 initPlayer playerName chips =
+  NeedTOCHECKIF BLIND REQUIRED!
   Player
     { _pockets = Nothing,
       _playerStatus = SatIn HasNotPlayedLastHand NotPostedBlind,
@@ -84,9 +85,9 @@ nextHandStatus _ SatOut = SatIn HasNotPlayedLastHand NotPostedBlind
 nextHandStatus _ (SatIn playedLastHand hasPostedBlind) = SatIn playedLastHand hasPostedBlind
 
 -- Update active players states to prepare them for the next hand.
-nextHandPlayer :: Player -> Player
-nextHandPlayer Player {..} =
-  Player
+nextHandPlayer :: PlayerInfo -> PlayerInfo
+nextHandPlayer PlayerInfo {..} =
+  PlayerInfo
     { _pockets = Nothing,
       _playerStatus = nextHandStatus _chips _playerStatus,
       _committed = CommittedChips 0,
@@ -193,21 +194,21 @@ progressToShowdown game@Game {..} =
 -- folded to him. The winning player then has the choice of whether to "muck"
 -- (not show) his cards or not.
 -- SinglePlayerShowdown occurs when everyone folds to one player
-awardWinners :: [Player] -> Int -> Winners -> [Player]
+awardWinners :: [PlayerInfo] -> Int -> Winners -> [PlayerInfo]
 awardWinners _players pot' = \case
   MultiPlayerShowdown winners' ->
     let chipsPerPlayer = pot' `div` length winners'
         playerNames = snd <$> winners'
-     in ( \p@Player {..} ->
+     in ( \p ->
             if _playerName `elem` playerNames
-              then Player {_chips = _chips <> (Chips chipsPerPlayer), ..}
+              then Player { _chips = getChips p <> (Chips chipsPerPlayer), ..}
               else p
         )
           <$> _players
   SinglePlayerShowdown _ ->
-    ( \p@Player {..} ->
+    ( \p ->
         if p `elem` getActivePlayers _players
-          then Player {_chips = _chips <> (Chips pot'), ..}
+          then PlayerInfo {_chips = getChips p <> (Chips pot'), ..}
           else p
     )
       <$> _players
@@ -273,10 +274,10 @@ awaitingPlayerAction Game {..} =
   length activePlayers >= 2 && any (callNeeded _maxBet) activePlayers
   where
     activePlayers = getActivePlayers _players
-    callNeeded maxBet' Player {..} =
+    callNeeded maxBet' p =
       canAct _playerStatus == PlayerCanAct
-        && unChips _chips > 0
-        && _bet < maxBet'
+        && getChips p > 0
+        && getCurrBet p < maxBet'
 
 -- If all players have folded apart from a remaining player then the mucked boolean
 -- inside the player value will determine if we show the remaining players hand to the
@@ -290,7 +291,7 @@ getWinners game@Game {..} =
       SinglePlayerShowdown $
         head $
           flip (^.) playerName
-            <$> filter (\Player {..} -> _playerStatus /= InHand Folded) _players
+            <$> filter inHandAndNotFolded _players
     else MultiPlayerShowdown $ maximums $ getHandRankings _players _board
 
 -- Return the best hands and the active players (playerStatus of In) who hold
@@ -301,12 +302,12 @@ getWinners game@Game {..} =
 getHandRankings ::
   [Player] -> [Card] -> [((HandRank, PlayerShowdownHand), PlayerName)]
 getHandRankings plyrs boardCards =
-  ( \(showdownHand, Player {..}) ->
-      ((_2 %~ PlayerShowdownHand) showdownHand, _playerName)
+  ( \(showdownHand, plyr) ->
+      ((_2 %~ PlayerShowdownHand) showdownHand, getPlayerName plyr)
   )
     <$> map
-      ( \plyr@Player {..} ->
-          let showHand = (++ boardCards) $ unPocketCards $ fromJust _pockets
+      ( \plyr ->
+          let showHand = (++ boardCards) $ unPocketCards $ fromJust $ getPockets plyr
            in (value showHand, plyr)
       )
       remainingPlayersInHand
@@ -319,7 +320,7 @@ getHandRankings plyrs boardCards =
 -- No player is forced to post first blind during PreDeal (blind betting stage).
 --
 -- Important to note that this function is mainly for asserting whether we need to
--- time a player's action. Player actions which are not mandatory such as posting a blind
+-- time a player's action. PlayerInfo actions which are not mandatory such as posting a blind
 -- to start a game will not be timed actions.
 --
 -- All possible player actions are either compulsary or optional. For example SitIn as a player is never forced to play a game. However if a player is already active in an
@@ -343,27 +344,28 @@ doesPlayerHaveToAct playerName game@Game {..}
       then error $ "_currentPosToAct too large " <> show game
       else case _players Safe.!! fromJust _currentPosToAct of
         Nothing -> False
-        Just Player {..}
-          | unChips _chips == 0 ->
+        Just p
+          | getChips p == 0 ->
             False
           | _street
               == Showdown
               || countActive _players < 2
               || haveAllPlayersActed game
-              || (PlayerCannotAct == canAct _playerStatus)
+              || (PlayerCannotAct == canPlayerAct p)
               || _street
               == PreDeal && _maxBet
               == 0 ->
             False
           | _street == PreDeal ->
-            _playerName
+            pName
               == playerName
               && ( isNothing $
                      blindRequiredByPlayer game playerName
                  )
           | otherwise ->
-            _playerName == playerName
+            pName == playerName
   where
+    pName = getPlayerName p
     currPosToActOutOfBounds =
       maybe False ((length _players - 1) <) _currentPosToAct
 
@@ -388,7 +390,7 @@ nextIxPlayerToAct ps = nextIPlayer
       Just currPos ->
         let nextIxPlayerToAct = tail $ iplayers' currPos
          in find
-              (\(_, Player {..}) -> PlayerCanAct == canAct _playerStatus)
+              (\(_, p) -> PlayerCanAct == canPlayerAct p)
               nextIxPlayerToAct
 
 -- gets the position of the next player which needs to act

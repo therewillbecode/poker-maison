@@ -21,7 +21,7 @@ import Poker.Poker (initialGameState)
 import Poker.Types
   ( Blind (SmallBlind),
     Game (_pot, _smallBlind),
-    Player (..),
+    PlayerInfo (..),
     PlayerState (..),
     SatInState (..),
     Street (PreDeal, PreFlop),
@@ -40,9 +40,9 @@ import Test.Hspec (describe, it, shouldBe)
 initialGameState' :: Game
 initialGameState' = initialGameState initialDeck
 
-player1 :: Player
+player1 :: PlayerInfo
 player1 =
-  Player
+  PlayerInfo
     { _pockets = Nothing,
       _chips = 2000,
       _bet = 0,
@@ -53,9 +53,9 @@ player1 =
       _possibleActions = []
     }
 
-player2 :: Player
+player2 :: PlayerInfo
 player2 =
-  Player
+  PlayerInfo
     { _pockets = Nothing,
       _chips = 2000,
       _bet = 0,
@@ -66,9 +66,9 @@ player2 =
       _possibleActions = []
     }
 
-player3 :: Player
+player3 :: PlayerInfo
 player3 =
-  Player
+  PlayerInfo
     { _pockets = Nothing,
       _chips = 2000,
       _bet = 0,
@@ -79,9 +79,9 @@ player3 =
       _possibleActions = []
     }
 
-player4 :: Player
+player4 :: PlayerInfo
 player4 =
-  Player
+  PlayerInfo
     { _pockets = Nothing,
       _chips = 2000,
       _bet = 0,
@@ -92,9 +92,9 @@ player4 =
       _possibleActions = []
     }
 
-player5 :: Player
+player5 :: PlayerInfo
 player5 =
-  Player
+  PlayerInfo
     { _pockets = Nothing,
       _chips = 4000,
       _bet = 4000,
@@ -105,9 +105,9 @@ player5 =
       _possibleActions = []
     }
 
-player6 :: Player
+player6 :: PlayerInfo
 player6 =
-  Player
+  PlayerInfo
     { _pockets = Nothing,
       _chips = 2000,
       _bet = 200,
@@ -140,7 +140,7 @@ spec = do
           playerWhoBet = newGame ^? players . ix 0
           smallBlindValue = _smallBlind game
           expectedPlayer =
-            Player
+            PlayerInfo
               { _pockets = Nothing,
                 _chips = 2000 - smallBlindValue,
                 _bet = smallBlindValue,
@@ -172,7 +172,7 @@ spec = do
           newGame = makeBet betValue pName game
           playerWhoBet = newGame ^? players . ix 0
           expectedPlayer =
-            Player
+            PlayerInfo
               { _pockets = Nothing,
                 _chips = 2000 - betValue,
                 _bet = betValue,
@@ -211,7 +211,7 @@ spec = do
           newGame = makeBet betValue pName game
           playerWhoBet = newGame ^? players . ix 0
           expectedPlayer =
-            Player
+            PlayerInfo
               { _pockets = Nothing,
                 _chips = 0,
                 _bet = betValue,
@@ -244,7 +244,7 @@ spec = do
           newGame = foldCards pName game
           playerWhoFolded = newGame ^? players . ix 0
           expectedPlayer =
-            Player
+            PlayerInfo
               { _pockets = Nothing,
                 _chips = 2000,
                 _bet = 0,
@@ -276,7 +276,7 @@ spec = do
           newGame = call pName game
           playerWhoCalled = newGame ^? players . ix 1
           expectedPlayer =
-            Player
+            PlayerInfo
               { _pockets = Nothing,
                 _chips = 1800,
                 _bet = 400,
@@ -297,7 +297,7 @@ spec = do
           newGame' = call pName' game'
           playerWhoCalled' = newGame' ^? players . ix 1
           expectedPlayer' =
-            Player
+            PlayerInfo
               { _pockets = Nothing,
                 _chips = 0,
                 _bet = 2000,

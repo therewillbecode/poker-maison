@@ -29,13 +29,13 @@ makeBet isCall betSize pName game@Game {..} =
       . (pot +~ betSize)
   where
     placePlayerBet = (<$>) $
-      \p@Player {..} ->
+      \p@PlayerInfo {..} ->
         if _playerName == pName
           then placeBet isCall betSize p
           else p
 
 -- Update table maxBet and pot as well as player state and chip count
-placeBet :: Bool -> Chips -> Player -> Player
+placeBet :: Bool -> Chips -> PlayerInfo -> PlayerInfo
 placeBet isCall betSize plyr =
   let chips' = plyr ^. chips
    in plyr
@@ -68,14 +68,14 @@ nextPlayerStatus _ SitOut playerStatus = SatOut
 nextPlayerStatus _ _ playerStatus = playerStatus
 
 --
---markActed :: Action -> Player -> Player
---markActed action p@Player {..} =
+--markActed :: Action -> PlayerInfo -> PlayerInfo
+--markActed action p@PlayerInfo {..} =
 --  p & (playerStatus %~ newPlayerStatus _chips action)
 
 updateMaxBet :: Chips -> Game -> Game
 updateMaxBet amount = maxBet %~ max amount
 
-markInForHand :: Player -> Player
+markInForHand :: PlayerInfo -> PlayerInfo
 markInForHand p = if _chips p == 0 then p else p & playerStatus .~ InHand NotActedYet  
 
 -- Will increment the game's current position to act to the next position
@@ -93,8 +93,8 @@ postBlind blind pName game@Game {..} =
           . (currentPosToAct .~ pure nextRequiredBlindPos)
           . (maxBet .~ newMaxBet)
   where
-    isFirstBlind = sum ((\Player {..} -> _bet) <$> _players) == 0
-    gamePlayerNames = (\Player {..} -> _playerName) <$> _players
+    isFirstBlind = sum ((\PlayerInfo {..} -> _bet) <$> _players) == 0
+    gamePlayerNames = (\PlayerInfo {..} -> _playerName) <$> _players
     blindValue = if blind == SmallBlind then _smallBlind else _bigBlind
     newMaxBet = Chips $ if blindValue > unChips _maxBet then blindValue else unChips _maxBet
     positionOfBlindPoster = fromJust $ findIndex ((== pName) . (^. playerName)) _players
@@ -105,7 +105,7 @@ foldCards pName game@Game {..} =
   game & (players .~ newPlayers) . (currentPosToAct %~ nextPosToAct _players)
   where
     newPlayers =
-      ( \p@Player {..} ->
+      ( \p@PlayerInfo {..} ->
           if _playerName == pName
             then p & playerStatus %~ nextPlayerStatus _chips Fold
             else p
@@ -120,7 +120,7 @@ call pName game@Game {..} =
         & (currentPosToAct %~ nextPosToAct _players)
           . (pot +~ callAmount)
   where
-    player = fromJust $ find (\Player {..} -> _playerName == pName) _players --horrible performance use map for players
+    player = fromJust $ find (\PlayerInfo {..} -> _playerName == pName) _players --horrible performance use map for players
     callAmount =
       let maxBetShortfall = _maxBet - (player ^. bet)
           playerChips = player ^. chips
@@ -133,7 +133,7 @@ check pName game@Game {..} =
   game & (players .~ newPlayers) . (currentPosToAct %~ nextPosToAct _players)
   where
     newPlayers =
-      ( \p@Player {..} ->
+      ( \p@PlayerInfo {..} ->
           if _playerName == pName
             then p & playerStatus %~ nextPlayerStatus _chips Check
             else p
@@ -146,9 +146,9 @@ sitOut :: PlayerName -> Game -> Game
 sitOut plyrName =
   players
     %~ (<$>)
-      ( \p@Player {..} ->
+      ( \p@PlayerInfo {..} ->
           if _playerName == plyrName
-            then Player {_playerStatus = SatOut, ..}
+            then PlayerInfo {_playerStatus = SatOut, ..}
             else p
       )
 
@@ -156,10 +156,10 @@ sitIn :: PlayerName -> Game -> Game
 sitIn plyrName =
   players
     %~ (<$>)
-      ( \p@Player {..} ->
+      ( \p@PlayerInfo {..} ->
           if _playerName == plyrName
             then
-              Player
+              PlayerInfo
                 { _playerStatus =
                     SatIn HasNotPlayedLastHand NotPostedBlind,
                   ..
@@ -167,12 +167,12 @@ sitIn plyrName =
             else p
       )
 
-seatPlayer :: Player -> Game -> Game
+seatPlayer :: PlayerInfo -> Game -> Game
 seatPlayer plyr = players <>~ pure plyr
 
-joinWaitlist :: Player -> Game -> Game
+joinWaitlist :: PlayerInfo -> Game -> Game
 joinWaitlist plyr = waitlist %~ (:) (plyr ^. playerName)
 
 leaveSeat :: PlayerName -> Game -> Game
 leaveSeat plyrName =
-  players %~ filter (\Player {..} -> plyrName /= _playerName)
+  players %~ filter (\PlayerInfo {..} -> plyrName /= _playerName)

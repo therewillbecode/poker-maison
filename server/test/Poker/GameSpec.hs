@@ -49,7 +49,7 @@ import Poker.Types
   ( Card (Card, rank, suit),
     Deck (Deck),
     Game (..),
-    Player (..),
+    PlayerInfo (..),
     PlayerState (..),
     PocketCards (PocketCards),
     Rank (Four, King, Three),
@@ -85,9 +85,9 @@ import Test.Hspec.Hedgehog
 initialGameState' :: Game
 initialGameState' = initialGameState initialDeck
 
-player1 :: Player
+player1 :: PlayerInfo
 player1 =
-  Player
+  PlayerInfo
     { _pockets =
         Just $
           PocketCards
@@ -102,9 +102,9 @@ player1 =
       _possibleActions = []
     }
 
-player2 :: Player
+player2 :: PlayerInfo
 player2 =
-  Player
+  PlayerInfo
     { _pockets =
         Just $
           PocketCards
@@ -119,9 +119,9 @@ player2 =
       _possibleActions = []
     }
 
-player3 :: Player
+player3 :: PlayerInfo
 player3 =
-  Player
+  PlayerInfo
     { _pockets = Nothing,
       _chips = 2000,
       _bet = 0,
@@ -132,9 +132,9 @@ player3 =
       _possibleActions = []
     }
 
-player4 :: Player
+player4 :: PlayerInfo
 player4 =
-  Player
+  PlayerInfo
     { _pockets = Nothing,
       _chips = 2000,
       _bet = 0,
@@ -145,9 +145,9 @@ player4 =
       _possibleActions = []
     }
 
-player5 :: Player
+player5 :: PlayerInfo
 player5 =
-  Player
+  PlayerInfo
     { _pockets =
         Just $
           PocketCards
@@ -162,9 +162,9 @@ player5 =
       _possibleActions = []
     }
 
-player6 :: Player
+player6 :: PlayerInfo
 player6 =
-  Player
+  PlayerInfo
     { _pockets = Nothing,
       _chips = 2000,
       _bet = 0,
@@ -175,7 +175,7 @@ player6 =
       _possibleActions = []
     }
 
-initPlayers :: [Player]
+initPlayers :: [PlayerInfo]
 initPlayers = [player1, player2, player3]
 
 turnGameThreePlyrs :: Game
@@ -196,7 +196,7 @@ turnGameThreePlyrs =
       _waitlist = [],
       _deck = Deck [],
       _players =
-        [ Player
+        [ PlayerInfo
             { _pockets = Nothing,
               _chips = 2197,
               _bet = 0,
@@ -206,7 +206,7 @@ turnGameThreePlyrs =
               _actedThisTurn = False,
               _possibleActions = []
             },
-          Player
+          PlayerInfo
             { _pockets = Nothing,
               _chips = 1847,
               _bet = 0,
@@ -216,7 +216,7 @@ turnGameThreePlyrs =
               _actedThisTurn = False,
               _possibleActions = []
             },
-          Player
+          PlayerInfo
             { _pockets = Nothing,
               _chips = 2072,
               _bet = 0,
@@ -234,7 +234,7 @@ spec = do
     it "should deal correct number of cards" $ do
       let (_, newPlayers) = dealToPlayers initialDeck [player1, player3]
       all
-        ( \Player {..} ->
+        ( \PlayerInfo {..} ->
             if _playerStatus == SatIn NotFolded
               then isJust _pockets
               else isNothing _pockets
@@ -419,7 +419,7 @@ spec = do
               $ initialGameState'
       let showdownGame = progressToShowdown riverGame
       let playerChipCounts =
-            (\Player {..} -> _chips) <$> _players showdownGame
+            (\PlayerInfo {..} -> _chips) <$> _players showdownGame
       playerChipCounts `shouldBe` [1500, 1500]
 
   describe "getNextHand" $ do
@@ -438,7 +438,7 @@ spec = do
     it "should reset maxBet" $ preDealGame ^. maxBet `shouldBe` 0
 
     it "should reset all player bets" $ do
-      let playerBets = (\Player {..} -> _bet) <$> _players preDealGame
+      let playerBets = (\PlayerInfo {..} -> _bet) <$> _players preDealGame
       playerBets `shouldBe` [0, 0]
 
     it "should increment dealer position" $ preDealGame ^. dealer `shouldBe` 0
@@ -917,7 +917,7 @@ spec = do
 
   describe "nextPosToAct" $ do
     let player1 =
-          Player
+          PlayerInfo
             { _pockets = Nothing,
               _chips = 2000,
               _bet = 0,
@@ -929,7 +929,7 @@ spec = do
             }
 
         player2 =
-          Player
+          PlayerInfo
             { _pockets = Nothing,
               _chips = 2000,
               _bet = 0,
@@ -941,7 +941,7 @@ spec = do
             }
 
         player3 =
-          Player
+          PlayerInfo
             { _pockets = Nothing,
               _chips = 2000,
               _bet = 0,
@@ -953,7 +953,7 @@ spec = do
             }
 
         player4 =
-          Player
+          PlayerInfo
             { _pockets = Nothing,
               _chips = 2000,
               _bet = 0,
@@ -965,7 +965,7 @@ spec = do
             }
 
         player5 =
-          Player
+          PlayerInfo
             { _pockets = Nothing,
               _chips = 4000,
               _bet = 4000,
@@ -1024,7 +1024,7 @@ spec = do
                 _waitlist = [],
                 _deck = Deck [],
                 _players =
-                  [ Player
+                  [ PlayerInfo
                       { _pockets = Nothing,
                         _chips = 2300,
                         _bet = 50,
@@ -1034,7 +1034,7 @@ spec = do
                         _actedThisTurn = True,
                         _possibleActions = []
                       },
-                    Player
+                    PlayerInfo
                       { _pockets = Nothing,
                         _chips = 1700,
                         _bet = 50,
@@ -1044,7 +1044,7 @@ spec = do
                         _actedThisTurn = True,
                         _possibleActions = []
                       },
-                    Player
+                    PlayerInfo
                       { _pockets = Nothing,
                         _chips = 2122,
                         _bet = 0,

@@ -14,6 +14,68 @@ import Data.Text (Text)
 import Poker.Types
 import System.Random (Random (randomR), RandomGen)
 
+
+isSatIn :: Player -> Bool
+isSatIn  (PreHandP (SatOutP SatOutPlayer{})) = False 
+isSatIn _ = True
+
+isSatOut :: Player -> Bool
+isSatOut = not . isSatIn
+
+isAllIn (InHandP (AllInP p)) = True
+isAllIn _ = False
+
+
+getPockets (InHandP (CanActP p)) = p ^. pockets
+getPockets (InHandP (FoldedP p)) = p ^. pockets
+getPockets (InHandP (AllInP p)) = p ^. pockets
+getPockets _ =Nothing
+
+hasFolded (InHandP (FoldedP _)) = True
+hasFolded (InHandP (AllInP _)) = False 
+
+getCommitted (PreHandP (NeedsBlindP p@BlindRequiredPlayer{})) = CommittedChips 0
+getCommitted (PreHandP (NoBlindNeededP p@NoBlindRequiredPlayer{})) =  CommittedChips 0
+getCommitted (PreHandP (HasPostedBlindP p@HasPostedBlindPlayer{})) = p ^. committed
+getCommitted (PreHandP (SatOutP p@SatOutPlayer{})) = CommittedChips 0
+getCommitted (InHandP (CanActP p)) = p ^. committed
+getCommitted (InHandP (FoldedP p)) = p ^. committed
+getCommitted (InHandP (AllInP p)) = p ^. committed
+
+getCurrBet (InHandP (CanActP p)) =  p ^. currBet
+getCurrBet (InHandP (FoldedP p)) = p ^. currBet
+getCurrBet (InHandP (AllInP p)) =  p ^. currBet
+getCurrBet _ = Chips 0
+
+getChips (PreHandP (NeedsBlindP p@BlindRequiredPlayer{})) = p ^. chips
+getChips (PreHandP (NoBlindNeededP p@NoBlindRequiredPlayer{})) = p ^. chips
+getChips (PreHandP (HasPostedBlindP p@HasPostedBlindPlayer{})) = p ^. chips
+getChips (PreHandP (SatOutP p@SatOutPlayer{})) = p ^. chips
+getChips (InHandP (CanActP p)) = p ^. chips
+getChips (InHandP (FoldedP p)) = p ^. chips
+getChips (InHandP (AllInP _)) = Chips 0
+
+getPlayerName (PreHandP (NeedsBlindP p@BlindRequiredPlayer{})) = p ^. playerName
+getPlayerName (PreHandP (NoBlindNeededP p@NoBlindRequiredPlayer{})) = p ^. playerName
+getPlayerName (PreHandP (HasPostedBlindP p@HasPostedBlindPlayer{})) = p ^. playerName
+getPlayerName (PreHandP (SatOutP p@SatOutPlayer{})) = p ^. playerName
+getPlayerName (InHandP (CanActP p)) = p ^. playerName
+getPlayerName (InHandP (FoldedP p)) = p ^. playerName
+getPlayerName (InHandP (AllInP p)) = p ^. playerName
+
+
+inHandAndNotFolded (InHandP (AllInP _))  = True
+inHandAndNotFolded (InHandP (CanActP _)) = True
+inHandAndNotFolded _ = False
+
+canPlayerAct (InHandP (CanActP p)) = PlayerCanAct
+canPlayerAct _ = PlayerCannotAct
+
+shouldDeal (PreHandP (NoBlindNeededP p@NoBlindRequiredPlayer{})) = True
+shouldDeal (PreHandP (HasPostedBlindP p@HasPostedBlindPlayer{})) = True
+shouldDeal _ = False
+
+
 -- | A standard deck of cards.
 initialDeck :: Deck
 initialDeck = Deck $ Card <$> [minBound ..] <*> [minBound ..]
@@ -62,17 +124,17 @@ modDec num modulo
 -- whereas sat in means that the player has at the very least had some historical participation
 -- in the current hand
 getActivePlayers :: [Player] -> [Player]
-getActivePlayers = filter ((==) PlayerCanAct . canAct . _playerStatus)
+getActivePlayers = filter (((==) PlayerCanAct) . canPlayerAct)
 
 filterPlayersWithLtChips :: Int -> [Player] -> [Player]
 filterPlayersWithLtChips count =
   filter
-    ( \Player {..} ->
-        unChips _chips >= count
+    ( \p ->
+      getChips p >= Chips count
     )
 
 filterSatOutPlayers :: [Player] -> [Player]
-filterSatOutPlayers = filter (\Player {..} -> _playerStatus /= SatOut)
+filterSatOutPlayers = filter isSatOut
 
 countActive :: [Player] -> Int
 countActive = length . getActivePlayers
@@ -80,12 +142,9 @@ countActive = length . getActivePlayers
 --actedThisTurn :: PlayerStatus -> HasActedThisStreet
 --actedThisTurn (InHand (CanAct mbLastAction)) = isJust mbLastAction
 
-canAct :: PlayerStatus -> CanPlayerAct
-canAct (InHand (CanAct _)) = PlayerCanAct
-canAct _ = PlayerCannotAct
 
 canPlayersAct :: Functor f => f Player -> f CanPlayerAct
-canPlayersAct ps = canAct . _playerStatus <$> ps
+canPlayersAct ps = canPlayerAct <$> ps
 
 canAnyPlayerAct :: [Player] -> Bool
 canAnyPlayerAct = elem PlayerCanAct . canPlayersAct
@@ -108,17 +167,20 @@ playersNotAllIn ps
   where
     numPlayersIn = length $ getActivePlayers ps
     numPlayersAllIn =
-      length $ filter (\Player {..} -> _playerStatus == InHand AllIn) ps
+      length $ filter isAllIn ps
+
+
 
 -- The game should go straight to showdown if all but one players is In hand
 allButOneFolded :: [Player] -> Bool
-allButOneFolded ps = length playersInHand <= 1
+allButOneFolded ps = length inHandAndNotFolded' <= 1
   where
-    playersInHand = filter ((== InHand Folded) . (^. playerStatus)) ps
+    inHandAndNotFolded' = filter inHandAndNotFolded ps
 
 -- get all players who are not currently sat out
 getPlayersSatIn :: [Player] -> [Player]
-getPlayersSatIn = filter ((/= SatOut) . (^. playerStatus))
+getPlayersSatIn = filter isSatOut
+
 
 -- player position is the order of a given player in the set of all players with a
 -- playerStatus of In or in other words the players that are both sat at the table and active
@@ -137,22 +199,23 @@ getGamePlayers game = game ^. players
 
 getGamePlayer :: Game -> PlayerName -> Maybe Player
 getGamePlayer game playerName =
-  find (\Player {..} -> _playerName == playerName) $ _players game
+  find (\p-> getPlayerName p == playerName) $ _players game
 
-getGamePlayerState :: Game -> PlayerName -> Maybe PlayerStatus
-getGamePlayerState game playerName = do
-  Player {..} <- getGamePlayer game playerName
-  return _playerStatus
+--getGamePlayerState :: Game -> PlayerName -> Maybe PlayerStatus
+--getGamePlayerState game playerName = do
+--  PlayerInfo {..} <- getGamePlayer game playerName
+--  return _playerStatus
 
 getGamePlayerNames :: Game -> [Text]
-getGamePlayerNames game = _playerName <$> _players game
+getGamePlayerNames game = getPlayerName <$> _players game
 
-getPlayerChipCounts :: Game -> [(Text, Int)]
-getPlayerChipCounts Game {..} =
-  (\Player {..} -> (_playerName, unChips _chips)) <$> _players
+
+--getPlayerChipCounts :: Game -> [(Text, Int)]
+--getPlayerChipCounts Game {..} =
+ -- (\PlayerInfo {..} -> (_playerName, unChips _chips)) <$> _players
 
 getPlayerNames :: [Player] -> [Text]
-getPlayerNames players = (^. playerName) <$> players
+getPlayerNames players = getPlayerName <$> players
 
 -- Nothing for currentPosToAct during Predeal means that the first blind
 -- can be posted from any position as this is the first blind to get a new game started

@@ -155,8 +155,8 @@ updatePlayersPossibleActions g@Game {..} =
     }
   where
     updatedPlayers =
-      ( \Player {..} ->
-          Player {_possibleActions = getValidPlayerActions g _playerName, ..}
+      ( \PlayerInfo {..} ->
+          PlayerInfo {_possibleActions = getValidPlayerActions g _playerName, ..}
       )
         <$> _players
 

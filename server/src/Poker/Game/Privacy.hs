@@ -47,19 +47,19 @@ excludePrivateCards maybePlayerName game =
         (updatePocketCardsForPlayer showAllActivesCards)
         maybePlayerName
 
-updatePocketCardsForSpectator :: Bool -> (Player -> Player)
+updatePocketCardsForSpectator :: Bool -> (PlayerInfo -> PlayerInfo)
 updatePocketCardsForSpectator showAllActivesCards
-  | showAllActivesCards = \player@Player {..} ->
-    if _playerStatus /= InHand Folded then player else Player {_pockets = Nothing, ..}
-  | otherwise = \Player {..} -> Player {_pockets = Nothing, ..}
+  | showAllActivesCards = \player@PlayerInfo {..} ->
+    if _playerStatus /= InHand Folded then player else PlayerInfo {_pockets = Nothing, ..}
+  | otherwise = \PlayerInfo {..} -> PlayerInfo {_pockets = Nothing, ..}
 
-updatePocketCardsForPlayer :: Bool -> PlayerName -> (Player -> Player)
+updatePocketCardsForPlayer :: Bool -> PlayerName -> (PlayerInfo -> PlayerInfo)
 updatePocketCardsForPlayer showAllActivesCards playerName
-  | showAllActivesCards = \player@Player {..} ->
+  | showAllActivesCards = \player@PlayerInfo {..} ->
     if (_playerStatus /= InHand Folded) || (_playerName == playerName)
       then player
-      else Player {_pockets = Nothing, ..}
-  | otherwise = \player@Player {..} ->
+      else PlayerInfo {_pockets = Nothing, ..}
+  | otherwise = \player@PlayerInfo {..} ->
     if _playerName == playerName
       then player
-      else Player {_pockets = Nothing, ..}
+      else PlayerInfo {_pockets = Nothing, ..}

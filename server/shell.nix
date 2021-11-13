@@ -7,9 +7,9 @@ let
   f = { mkDerivation, adjunctions, aeson, async, base, bytestring
       , comonad, containers, cryptohash, distributive, ekg, free
       , hashable, hedgehog, hedis, hpack, hspec, hspec-hedgehog, jose
-      , jwt, lens, lib, listsafe, monad-logger, MonadRandom, mtl
-      , persistent, persistent-postgresql, persistent-template, pipes
-      , pipes-aeson, pipes-concurrency, pipes-parse, pretty-simple
+      , jwt, lens, lib, listsafe, machines, monad-logger, MonadRandom
+      , mtl, persistent, persistent-postgresql, persistent-template
+      , pipes, pipes-aeson, pipes-concurrency, pipes-parse, pretty-simple
       , random, servant, servant-auth, servant-auth-client
       , servant-auth-server, servant-foreign, servant-options
       , servant-server, servant-websockets, split, stm, text, time
@@ -25,7 +25,7 @@ let
         libraryHaskellDepends = [
           adjunctions aeson async base bytestring comonad containers
           cryptohash distributive ekg free hashable hedis jose jwt lens
-          listsafe monad-logger MonadRandom mtl persistent
+          listsafe machines monad-logger MonadRandom mtl persistent
           persistent-postgresql persistent-template pipes pipes-aeson
           pipes-concurrency pipes-parse pretty-simple random servant
           servant-auth servant-auth-client servant-auth-server
@@ -37,7 +37,7 @@ let
         executableHaskellDepends = [
           adjunctions aeson async base bytestring comonad containers
           cryptohash distributive ekg free hashable hedis jose jwt lens
-          listsafe monad-logger MonadRandom mtl persistent
+          listsafe machines monad-logger MonadRandom mtl persistent
           persistent-postgresql persistent-template pipes pipes-aeson
           pipes-concurrency pipes-parse pretty-simple random servant
           servant-auth servant-auth-client servant-auth-server
@@ -48,13 +48,13 @@ let
         testHaskellDepends = [
           adjunctions aeson async base bytestring comonad containers
           cryptohash distributive ekg free hashable hedgehog hedis hspec
-          hspec-hedgehog jose jwt lens listsafe monad-logger MonadRandom mtl
-          persistent persistent-postgresql persistent-template pipes
-          pipes-aeson pipes-concurrency pipes-parse pretty-simple random
-          servant servant-auth servant-auth-client servant-auth-server
-          servant-foreign servant-options servant-server servant-websockets
-          split stm text time transformers utf8-string vector wai wai-cors
-          wai-extra wai-logger warp websockets
+          hspec-hedgehog jose jwt lens listsafe machines monad-logger
+          MonadRandom mtl persistent persistent-postgresql
+          persistent-template pipes pipes-aeson pipes-concurrency pipes-parse
+          pretty-simple random servant servant-auth servant-auth-client
+          servant-auth-server servant-foreign servant-options servant-server
+          servant-websockets split stm text time transformers utf8-string
+          vector wai wai-cors wai-extra wai-logger warp websockets
         ];
         prePatch = "hpack";
         homepage = "https://github.com/githubuser/poker-server#readme";
