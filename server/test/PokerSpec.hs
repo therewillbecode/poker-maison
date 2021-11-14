@@ -94,8 +94,8 @@ player5 =
       _possibleActions = []
     }
 
-initPlayers :: [PlayerInfo]
-initPlayers = [player1, player2, player3]
+newPreHandPlayers :: [PlayerInfo]
+newPreHandPlayers = [player1, player2, player3]
 
 spec :: SpecWith ()
 spec = describe "Poker" $ do

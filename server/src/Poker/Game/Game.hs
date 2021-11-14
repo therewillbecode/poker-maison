@@ -61,18 +61,14 @@ getNextStreet :: Street -> Street
 getNextStreet Showdown = minBound
 getNextStreet _street = succ _street
 
-initPlayer :: Text -> Int -> Player
-initPlayer playerName chips =
-  NeedTOCHECKIF BLIND REQUIRED!
-  Player
-    { _pockets = Nothing,
-      _playerStatus = SatIn HasNotPlayedLastHand NotPostedBlind,
-      _playerName = playerName,
-      _bet = 0,
-      _possibleActions = [],
-      _committed = CommittedChips 0,
-      _chips = Chips chips
-    }
+newPreHandPlayer :: Game -> Player -> PreHandPlayer
+newPreHandPlayer g p = PreHandP preHandPlayer
+  where
+    preHandPlayer = 
+      case requiredBlind g $ getPlayerName p of
+        Just blind -> toNeedsBlindPlayer p blind
+        Nothing -> toNoBlindNeededPlayer p
+
 
 -- Everytime the game progresses to another street we need to
 -- reset player statuses if the player has the possibility of acting

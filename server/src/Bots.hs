@@ -70,9 +70,9 @@ import Pipes.Concurrent
 import qualified Pipes.Prelude as P
 import Poker.ActionValidation (validateAction)
 import Poker.Game.Blinds (blindRequiredByPlayer)
-import Poker.Game.Game (doesPlayerHaveToAct, initPlayer)
+import Poker.Game.Game (doesPlayerHaveToAct, newPreHandPlayer)
 import Poker.Game.Utils (getGamePlayer)
-import Poker.Poker (initPlayer, runPlayerAction)
+import Poker.Poker (newPreHandPlayer, runPlayerAction)
 import Poker.Types
 import Socket.Table (toGameInMailbox, updateTable')
 import Socket.Types
@@ -105,19 +105,19 @@ delayThenSeatPlayer dbConn delayDuration s p = do
   print "... done . bot sat down "
 
 bot1 :: PlayerInfo
-bot1 = initPlayer "1@1" 2000
+bot1 = newPreHandPlayer "1@1" 2000
 
 bot2 :: PlayerInfo
-bot2 = initPlayer "2@2" 2000
+bot2 = newPreHandPlayer "2@2" 2000
 
 bot3 :: PlayerInfo
-bot3 = initPlayer "3@3" 2000
+bot3 = newPreHandPlayer "3@3" 2000
 
 bot4 :: PlayerInfo
-bot4 = initPlayer "101@101" 2000
+bot4 = newPreHandPlayer "101@101" 2000
 
 bot5 :: PlayerInfo
-bot5 = initPlayer "102@102" 2000
+bot5 = newPreHandPlayer "102@102" 2000
 
 startBotActionLoops ::
   ConnectionString -> TVar ServerState -> Int -> [PlayerName] -> IO ()

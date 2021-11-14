@@ -24,7 +24,7 @@ import Poker.Game.Blinds
   )
 import Poker.Game.Utils (getGamePlayerNames, initialDeck)
 import Poker.Generators (allPStates, genGame)
-import Poker.Poker (initPlayer, initialGameState)
+import Poker.Poker (newPreHandPlayer, initialGameState)
 import Poker.Types
   ( Blind (BigBlind, NoBlind, SmallBlind),
     Deck (Deck),
@@ -312,14 +312,14 @@ spec = do
       it "returns SmallBlind if player position is dealer + 1 for three players" $ do
         let testPlayers =
               (playerStatus .~ SatIn NotFolded)
-                <$> (initPlayer <$> ["Player1", "Player2", "Player3"] <*> [100])
+                <$> (newPreHandPlayer <$> ["Player1", "Player2", "Player3"] <*> [100])
         let game = players .~ testPlayers $ initialGameState'
         blindRequiredByPlayer game "Player2" `shouldBe` SmallBlind
 
       it "returns BigBlind if player position is dealer + 2 for three players" $ do
         let testPlayers =
               (playerStatus .~ SatIn NotFolded)
-                <$> (initPlayer <$> ["Player1", "Player2", "Player3"] <*> [100])
+                <$> (newPreHandPlayer <$> ["Player1", "Player2", "Player3"] <*> [100])
         let game = players .~ testPlayers $ initialGameState'
         blindRequiredByPlayer game "Player3" `shouldBe` BigBlind
 
@@ -328,7 +328,7 @@ spec = do
         $ do
           let testPlayers =
                 (playerStatus .~ SatIn NotFolded)
-                  <$> (initPlayer <$> ["Player1", "Player2", "Player3"] <*> [100])
+                  <$> (newPreHandPlayer <$> ["Player1", "Player2", "Player3"] <*> [100])
           let game = players .~ testPlayers $ initialGameState'
           blindRequiredByPlayer game "Player1" `shouldBe` NoBlind
 
@@ -337,19 +337,19 @@ spec = do
         $ do
           let testPlayers =
                 (playerStatus .~ SatOut)
-                  <$> (initPlayer <$> ["Player1", "Player2", "Player3"] <*> [100])
+                  <$> (newPreHandPlayer <$> ["Player1", "Player2", "Player3"] <*> [100])
           let game = players .~ testPlayers $ initialGameState'
           blindRequiredByPlayer game "Player1" `shouldBe` NoBlind
 
       it "returns SmallBlind if player position is dealer for two players" $ do
         let testPlayers =
               (playerStatus .~ SatIn NotFolded)
-                <$> (initPlayer <$> ["Player1", "Player2"] <*> [100])
+                <$> (newPreHandPlayer <$> ["Player1", "Player2"] <*> [100])
         let game = players .~ testPlayers $ initialGameState'
         blindRequiredByPlayer game "Player1" `shouldBe` SmallBlind
 
       it "returns BigBlind if player position is dealer + 1 for two players" $ do
-        let testPlayers = initPlayer <$> ["Player1", "Player2"] <*> [100]
+        let testPlayers = newPreHandPlayer <$> ["Player1", "Player2"] <*> [100]
         let game = players .~ testPlayers $ initialGameState'
         blindRequiredByPlayer game "Player2" `shouldBe` BigBlind
 

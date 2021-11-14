@@ -34,9 +34,9 @@ import Database
   )
 import Database.Persist.Postgresql (ConnectionString)
 import qualified Network.WebSockets as WS
-import Poker.Game.Game (initPlayer)
+import Poker.Game.Game (newPreHandPlayer)
 import Poker.Game.Utils (getGamePlayerNames)
-import Poker.Poker (initPlayer, runPlayerAction)
+import Poker.Poker (newPreHandPlayer, runPlayerAction)
 import Poker.Types
 import Schema
   ( UserEntity
@@ -124,7 +124,7 @@ takeSeatHandler (TakeSeat tableName chipsToSit) = do
       case canSit of
         Left err -> return $ Left err
         Right () -> do
-          let player = initPlayer (unUsername username) chipsToSit
+          let player = newPreHandPlayer (unUsername username) chipsToSit
               playerAction =
                 PlayerAction
                   { name = unUsername username,

@@ -175,8 +175,8 @@ player6 =
       _possibleActions = []
     }
 
-initPlayers :: [PlayerInfo]
-initPlayers = [player1, player2, player3]
+newPreHandPlayers :: [PlayerInfo]
+newPreHandPlayers = [player1, player2, player3]
 
 turnGameThreePlyrs :: Game
 turnGameThreePlyrs =

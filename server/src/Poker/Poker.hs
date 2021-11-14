@@ -7,7 +7,7 @@
 -}
 module Poker.Poker
   ( initialGameState,
-    initPlayer,
+    newPreHandPlayer,
     progressGame,
     canProgressGame,
     runPlayerAction,

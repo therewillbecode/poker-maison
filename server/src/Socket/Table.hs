@@ -77,7 +77,7 @@ import Pipes.Core (push)
 import Pipes.Parse (yield)
 import qualified Pipes.Prelude as P
 import Poker.ActionValidation (validateAction)
-import Poker.Game.Game (doesPlayerHaveToAct, initPlayer)
+import Poker.Game.Game (doesPlayerHaveToAct, newPreHandPlayer)
 import Poker.Game.Privacy (excludeOtherPlayerCards)
 import Poker.Game.Utils
 import Poker.Poker
@@ -167,7 +167,7 @@ getValidBotActions g@Game {..} name = do
     --return $ Just $ PlayerAction {action = validActions !! randIx, ..}
     actions :: Street -> Chips -> [Action]
     actions st chips
-      | st == PreDeal = [PostBlind BigBlind, PostBlind SmallBlind, SitDown (initPlayer name 1500)]
+      | st == PreDeal = [PostBlind BigBlind, PostBlind SmallBlind, SitDown (newPreHandPlayer name 1500)]
       | otherwise = [Check, Call, Fold, Bet chips, Raise chips]
     lowerBetBound = if _maxBet > 0 then 2 * _maxBet else Chips _bigBlind
     chipCount = maybe 0 (^. chips) (getGamePlayer g name)

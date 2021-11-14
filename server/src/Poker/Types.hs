@@ -17,6 +17,7 @@
 {-# LANGUAGE MultiParamTypeClasses  #-}
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE FlexibleInstances  #-}
+{-# LANGUAGE NamedFieldPuns  #-}
 
 module Poker.Types where
 
@@ -323,6 +324,22 @@ data PreHandPlayer =
   | NoBlindNeededP NoBlindRequiredPlayer
   | HasPostedBlindP HasPostedBlindPlayer
    deriving (Eq, Show, Read, Ord, Generic, ToJSON, FromJSON)
+
+toNeedsBlindPlayer :: Blind -> Player -> BlindRequiredPlayer
+toNeedsBlindPlayer _blindRequired (InHandP (CanActP CanActPlayer{..})) =
+    BlindRequiredPlayer{..}
+toNeedsBlindPlayer _blindRequired (InHandP (AllInP AllInPlayer{..})) =
+    BlindRequiredPlayer{..}
+toNeedsBlindPlayer _blindRequired ( InHandP (FoldedP FoldedPlayer{..})) =
+    BlindRequiredPlayer{..}
+
+toNeedsBlindPlayer _blindRequired (PreHandP (HasPostedBlindP HasPostedBlindPlayer{..})) =
+    BlindRequiredPlayer{..}
+toNeedsBlindPlayer _blindRequired (PreHandP (NoBlindNeededP NoBlindRequiredPlayer{..})) =
+    BlindRequiredPlayer{..}
+toNeedsBlindPlayer _blindRequired (PreHandP (SatOutP SatOutPlayer{..})) =
+    BlindRequiredPlayer{..}
+toNeedsBlindPlayer _blindRequired (PreHandP (NeedsBlindP p)) = p
 
 data SatOutPlayer = SatOutPlayer {
   _playerName :: Text,

@@ -26,7 +26,7 @@ import qualified Data.Map.Lazy as M
 import Data.Text (Text)
 import Pipes.Concurrent (atomically, newest, spawn)
 import Poker.Game.Utils (shuffledDeck)
-import Poker.Poker (initPlayer, initialGameState)
+import Poker.Poker (newPreHandPlayer, initialGameState)
 import Poker.Types (Game (..), unChips)
 import Socket.Types
   ( Lobby (..),
@@ -62,7 +62,7 @@ joinGame :: Username -> Int -> Game -> Game
 joinGame (Username username) chips Game {..} =
   Game {_players = _players <> pure player, ..}
   where
-    player = initPlayer username chips
+    player = newPreHandPlayer username chips
 
 joinTableWaitlist :: Username -> Table -> Table
 joinTableWaitlist username Table {..} =
