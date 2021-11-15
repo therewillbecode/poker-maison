@@ -4,11 +4,11 @@
 {-# LANGUAGE RecordWildCards #-}
 
 module Poker.Game.Privacy where
-
 import Control.Lens ((%~), (&), (.~))
-import Data.Text (Text)
+import Data.Text (Text) 
 import Poker.Game.Game (canPubliciseActivesCards)
 import Poker.Types
+import Poker.Game.Utils 
 
 -- For players that are sat in game
 excludeOtherPlayerCards :: PlayerName -> Game -> Game
@@ -47,19 +47,15 @@ excludePrivateCards maybePlayerName game =
         (updatePocketCardsForPlayer showAllActivesCards)
         maybePlayerName
 
-updatePocketCardsForSpectator :: Bool -> (PlayerInfo -> PlayerInfo)
+updatePocketCardsForSpectator :: Bool -> (Player -> Player)
 updatePocketCardsForSpectator showAllActivesCards
-  | showAllActivesCards = \player@PlayerInfo {..} ->
-    if _playerStatus /= InHand Folded then player else PlayerInfo {_pockets = Nothing, ..}
-  | otherwise = \PlayerInfo {..} -> PlayerInfo {_pockets = Nothing, ..}
+  | showAllActivesCards = \p ->
+    if isFolded p then hidePockets p else p
+  | otherwise = \p -> hidePockets p
 
-updatePocketCardsForPlayer :: Bool -> PlayerName -> (PlayerInfo -> PlayerInfo)
+updatePocketCardsForPlayer :: Bool -> PlayerName -> (Player -> Player)
 updatePocketCardsForPlayer showAllActivesCards playerName
-  | showAllActivesCards = \player@PlayerInfo {..} ->
-    if (_playerStatus /= InHand Folded) || (_playerName == playerName)
-      then player
-      else PlayerInfo {_pockets = Nothing, ..}
-  | otherwise = \player@PlayerInfo {..} ->
-    if _playerName == playerName
-      then player
-      else PlayerInfo {_pockets = Nothing, ..}
+   = \p ->
+    if showAllActivesCards || (not $ isFolded p) || (getPlayerName p == playerName)
+      then p
+      else hidePockets p

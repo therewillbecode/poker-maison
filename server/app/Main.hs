@@ -21,7 +21,7 @@ import           Crypto.JWT
 import           Data.Proxy
 import           Types
 
-main :: IO ((), ())
+main :: IO ((), Async ())
 main = do
   dbConnString  <- getDBConnStrFromEnv
   userAPIPort   <- getAuthAPIPort defaultUserAPIPort

@@ -23,12 +23,7 @@ import Poker.Game.Game
     getWinners,
   )
 import Poker.Game.Utils
-  ( getActivePlayers,
-    getGamePlayer,
-    getGamePlayerNames,
-    getGamePlayerState,
-    getPlayerNames,
-  )
+
 import Poker.Types
 
 -- TODO -- We should be deeply suspicious of the type  m ()
@@ -74,7 +69,7 @@ canPostBlind game@Game {..} name blind
     BigBlind -> if unChips chipCount < _bigBlind then notEnoughChipsErr else Right ()
     SmallBlind -> if unChips chipCount < _smallBlind then notEnoughChipsErr else Right ()
   where
-    chipCount = _chips $ fromJust $ getGamePlayer game name
+    chipCount = getChips $ fromJust $ getGamePlayer game name
     activePlayersCount = length $ getActivePlayers _players
     notEnoughChipsErr = Left $ InvalidMove name NotEnoughChipsForAction
 
@@ -104,7 +99,7 @@ isPlayerActingOutOfTurn game@Game {..} name
   where
     gamePlayerNames = getGamePlayerNames game
     numberOfPlayersSatIn =
-      length $ filter (\PlayerInfo {..} -> _playerStatus /= InHand Folded) _players
+      length $ filter (\p -> isFolded p) _players
     currPosToActOutOfBounds =
       maybe False ((length _players - 1) <) _currentPosToAct
     isNewGame = _street == PreDeal && isNothing _currentPosToAct
@@ -138,7 +133,7 @@ canBet name amount game@Game {..}
   | otherwise =
     Right ()
   where
-    chipCount = _chips $ fromJust $ getGamePlayer game name
+    chipCount = getChips $ fromJust $ getGamePlayer game name
 
 -- Keep in mind that a player can always raise all in,
 -- even if their total chip count is less than what
@@ -159,22 +154,22 @@ canRaise name amount game@Game {..}
     Right ()
   where
     minRaise = 2 * _maxBet
-    chipCount = _chips $ fromJust $ getGamePlayer game name
+    chipCount = getChips $ fromJust $ getGamePlayer game name
 
 canCheck :: PlayerName -> Game -> Either GameErr ()
 canCheck name Game {..}
-  | _street == PreFlop && fromCommittedChips _committed < _bigBlind =
+  | _street == PreFlop && fromCommittedChips (getCommitted p) < _bigBlind =
     Left $
       InvalidMove name CannotCheckShouldCallRaiseOrFold
   | _street == Showdown || _street == PreDeal =
     Left $
       InvalidMove name InvalidActionForStreet
-  | fromCommittedChips _committed < unChips _maxBet =
+  | fromCommittedChips (getCommitted p) < unChips _maxBet =
     Left $
       InvalidMove name CannotCheckShouldCallRaiseOrFold
   | otherwise = Right ()
   where
-    PlayerInfo {..} = fromJust $ find (\PlayerInfo {..} -> _playerName == name) _players
+    p = fromJust $ find (\p-> getPlayerName p == name) _players
 
 canFold :: PlayerName -> Game -> Either GameErr ()
 canFold name Game {..}
@@ -194,39 +189,39 @@ canCall name game@Game {..}
   | otherwise = Right ()
   where
     p = fromJust (getGamePlayer game name)
-    chipCount = _chips p
-    amountNeededToCall = _maxBet - _bet p
+    chipCount = getChips p
+    amountNeededToCall = _maxBet - (getCurrBet p)
 
-canSit :: PlayerInfo -> Game -> Either GameErr ()
-canSit player@PlayerInfo {..} game@Game {..}
+canSit :: Player -> Game -> Either GameErr ()
+canSit p game@Game {..}
   | _street /= PreDeal =
     Left $
-      InvalidMove _playerName CannotSitDownOutsidePreDeal
-  | _playerName `elem` getPlayerNames _players =
+      InvalidMove (getPlayerName p) CannotSitDownOutsidePreDeal
+  | getPlayerName p `elem` getPlayerNames _players =
     Left $
-      AlreadySatAtTable _playerName
-  | _chips < _minBuyInChips = Left $ NotEnoughChips _playerName
-  | _chips > _maxBuyInChips = Left $ OverMaxChipsBuyIn _playerName
+      AlreadySatAtTable $ getPlayerName p 
+  | getChips p < _minBuyInChips = Left $ NotEnoughChips $ getPlayerName p 
+  | getChips p > _maxBuyInChips = Left $ OverMaxChipsBuyIn $ getPlayerName p 
   | length _players < _maxPlayers = Right ()
-  | otherwise = Left $ CannotSitAtFullTable _playerName
+  | otherwise = Left $ CannotSitAtFullTable $ getPlayerName p 
 
 canSitOut :: PlayerName -> Game -> Either GameErr ()
 canSitOut name game@Game {..}
   | _street /= PreDeal = Left $ InvalidMove name CannotSitOutOutsidePreDeal
-  | isNothing currentState = Left $ NotAtTable name
-  | currentState == Just SatOut = Left $ InvalidMove name AlreadySatOut
+  | isNothing maybeP = Left $ NotAtTable name
+  | maybe False isSatOut maybeP = Left $ InvalidMove name AlreadySatOut
   | otherwise = Right ()
   where
-    currentState = getGamePlayerState game name
+    maybeP = getGamePlayer game name
 
 canSitIn :: PlayerName -> Game -> Either GameErr ()
 canSitIn name game@Game {..}
   | _street /= PreDeal = Left $ InvalidMove name CannotSitInOutsidePreDeal
-  | isNothing pState = Left $ NotAtTable name
-  | maybe False satIn pState = Left $ InvalidMove name AlreadySatIn
+  | isNothing maybeP = Left $ NotAtTable name
+  | maybe False isSatIn maybeP = Left $ InvalidMove name AlreadySatIn
   | otherwise = Right ()
   where
-    pState = getGamePlayerState game name
+    maybeP = getGamePlayer game name
 
 canLeaveSeat :: PlayerName -> Game -> Either GameErr ()
 canLeaveSeat playerName game@Game {..}
@@ -236,9 +231,10 @@ canLeaveSeat playerName game@Game {..}
   | playerName `notElem` getPlayerNames _players = Left $ NotAtTable playerName
   | otherwise = Right ()
 
-canJoinWaitList :: PlayerInfo -> Game -> Either GameErr ()
-canJoinWaitList player@PlayerInfo {..} game@Game {..}
-  | _playerName `elem` _waitlist = Left $ AlreadyOnWaitlist _playerName
+canJoinWaitList :: Player -> Game -> Either GameErr ()
+canJoinWaitList p game@Game {..}
+  | getPlayerName p `elem` _waitlist = Left $ AlreadyOnWaitlist
+     $  getPlayerName p 
   | otherwise = Right ()
 
 validateBlindAction :: Game -> PlayerName -> Blind -> Either GameErr ()
@@ -248,22 +244,24 @@ validateBlindAction game@Game {..} playerName blind
       InvalidMove playerName CannotPostBlindOutsidePreDeal
   | otherwise = case getGamePlayer game playerName of
     Nothing -> Left $ PlayerNotAtTable playerName
-    Just p@PlayerInfo {..} -> case blindRequired of
-      Nothing -> Left $ InvalidMove playerName BlindNotRequired
+    Just p -> case blindRequired of
+      Nothing -> Left $ InvalidMove (getPlayerName p) $  BlindNotRequired
       Just SmallBlind ->
         if blind == SmallBlind
           then
-            if fromCommittedChips _committed >= _smallBlind
-              then Left $ InvalidMove playerName $ BlindAlreadyPosted SmallBlind
+            if fromCommittedChips ( getCommitted p) >= _smallBlind
+              then Left $ InvalidMove (getPlayerName p) $ BlindAlreadyPosted SmallBlind
               else Right ()
-          else Left $ InvalidMove playerName $ BlindRequiredErr SmallBlind
+          else Left $ InvalidMove (getPlayerName p) $
+           BlindRequiredErr SmallBlind
       Just BigBlind ->
         if blind == BigBlind
           then
-            if fromCommittedChips _committed >= bigBlindValue
-              then Left $ InvalidMove playerName $ BlindAlreadyPosted BigBlind
+            if fromCommittedChips (getCommitted p) >= bigBlindValue
+              then Left $ InvalidMove (getPlayerName p) $ BlindAlreadyPosted BigBlind
               else Right ()
-          else Left $ InvalidMove playerName $ BlindRequiredErr BigBlind
+          else Left $ 
+          InvalidMove  (getPlayerName p) $ BlindRequiredErr BigBlind
       where
         blindRequired = blindRequiredByPlayer game playerName
         bigBlindValue = _smallBlind * 2

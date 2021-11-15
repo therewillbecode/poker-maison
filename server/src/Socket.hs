@@ -9,8 +9,8 @@ module Socket
   )
 where
 
-import Bots
-import Bots (bot1, bot2)
+--import Bots
+--import Bots (bot1, bot2)
 import Control.Concurrent (forkIO, threadDelay)
 import Control.Concurrent.Async (Async, async)
 import Control.Concurrent.STM
@@ -149,7 +149,7 @@ initialServerState lobby = ServerState {clients = M.empty, lobby = lobby}
 -- Create the initial lobby holding all game state and then fork a new thread for each table in the lobby
 -- to write new game states to the DB
 runSocketServer ::
-  BS.ByteString -> Int -> ConnectionString -> RedisConfig -> IO ()
+  BS.ByteString -> Int -> ConnectionString -> RedisConfig -> IO (Async ())
 runSocketServer secretKey port connString redisConfig = do
   lobby <- initialLobby
   serverStateTVar <- newTVarIO (initialServerState lobby)
@@ -160,8 +160,8 @@ runSocketServer secretKey port connString redisConfig = do
   -- workers for refilling chips
   forkBackgroundJobs connString serverStateTVar lobby
   print $ "Socket server listening on " ++ (show port :: String)
-  _ <-
-    async $
+  
+  async $
       WS.runServer "0.0.0.0" port $
         application
           secretKey
@@ -175,11 +175,11 @@ runSocketServer secretKey port connString redisConfig = do
   -- -- _ <- forkIO $ delayThenSeatPlayer connString 3000000 serverStateTVar bot5
   -- --threadDelay (sec * 8) --delay so bots dont start game until all of them sat down
   -- _ <- async $ startBotActionLoops connString serverStateTVar playersToWaitFor botNames
-  return ()
-  where
-    sec = 1000000
-    botNames = (^. playerName) <$> [bot1]
-    playersToWaitFor = 2
+ -- return ()
+ -- where
+ --   sec = 1000000
+ --   botNames = (^. playerName) <$> [bot1]
+ --   playersToWaitFor = 2
 
 -- subscriptions are handled by combining each subscribers mailbox into one large mailbox
 -- where mew MsgOuts with new game states are posted

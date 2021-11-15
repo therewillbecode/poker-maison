@@ -92,7 +92,7 @@ nextStage gen game@Game {..}
   | otherwise =
     game
   where
-    nextHand = getNextHand game (shuffledDeck gen)
+    nextHand = startNewHand game (shuffledDeck gen)
     numberPlayersSatIn = length $ getActivePlayers _players
     notEnoughPlayersToStartGame =
       _street == PreDeal && haveAllPlayersActed game && numberPlayersSatIn < 2
@@ -154,15 +154,15 @@ updatePlayersPossibleActions g@Game {..} =
       ..
     }
   where
-    updatedPlayers =
-      ( \PlayerInfo {..} ->
-          PlayerInfo {_possibleActions = getValidPlayerActions g _playerName, ..}
-      )
-        <$> _players
+    updatedPlayers = undefined
+   --   ( \PlayerInfo {..} ->
+   --       PlayerInfo {_possibleActions = getValidPlayerActions g _playerName, ..}
+   --   )
+   --     <$> _players
 
 getAllValidPlayerActions :: Game -> [[Action]]
 getAllValidPlayerActions g@Game {..} =
-  getValidPlayerActions g . _playerName <$> _players
+  getValidPlayerActions g . getPlayerName <$> _players
 
 getValidPlayerActions :: Game -> PlayerName -> [Action]
 getValidPlayerActions g@Game {..} name
@@ -183,6 +183,6 @@ getValidPlayerActions g@Game {..} name
       | st == PreDeal = [PostBlind BigBlind, PostBlind SmallBlind]
       | otherwise = [Check, Call, Fold, Bet $ Chips chips, Raise $ Chips chips]
     lowerBetBound = if _maxBet > 0 then 2 * _maxBet else Chips _bigBlind
-    chipCount = maybe 0 (^. chips) (getGamePlayer g name)
+    chipCount = maybe 0 (getChips) (getGamePlayer g name)
     panic = do
       error "no valid actions"

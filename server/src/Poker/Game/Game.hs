@@ -5,7 +5,7 @@
 
 module Poker.Game.Game where
 
-import Control.Lens (Field2 (_2), (%~), (&), (.~), (?~), (^.))
+import Control.Lens (Field2 (_2), (<>~), (%~), (&), (.~), (?~), (^.))
 import Data.List (find, mapAccumR)
 import qualified Data.List.Safe as Safe
 import Data.Maybe (fromJust, isNothing)
@@ -25,9 +25,23 @@ dealToPlayers =
         if shouldDeal player
           then
             let (pocketCs, remainingDeck) = dealPockets deck
-             in (remainingDeck, (pockets ?~ pocketCs) player)
+             in (remainingDeck, dealPlayer player pocketCs)
           else (deck, player)
     )
+
+dealPlayer :: Player -> PocketCards -> Player
+dealPlayer (InHandP (CanActP p)) pocketCs =
+  (InHandP (CanActP (p & (pockets ?~ pocketCs))))
+dealPlayer (InHandP (  CannotActP (AllInP p)))  pocketCs =
+  (InHandP (   CannotActP $  (AllInP (p & (pockets ?~ pocketCs)))))
+dealPlayer p _ = p
+
+giveChips :: Player -> Chips -> Player
+giveChips  (InHandP (CanActP p)) chips'= 
+  InHandP   (CanActP $ p & (chips <>~ chips'))
+giveChips (InHandP (      CannotActP  (AllInP p))) chips' = 
+  InHandP (     CannotActP   (AllInP  p )) --todo fix
+giveChips p _ = p
 
 dealPockets :: Deck -> (PocketCards, Deck)
 dealPockets (Deck cs) = (PocketCards fstC sndC, Deck remainingDeck)
@@ -61,50 +75,61 @@ getNextStreet :: Street -> Street
 getNextStreet Showdown = minBound
 getNextStreet _street = succ _street
 
+
+--already at table
 newPreHandPlayer :: Game -> Player -> PreHandPlayer
-newPreHandPlayer g p = PreHandP preHandPlayer
+newPreHandPlayer g p = preHandPlayer
   where
     preHandPlayer = 
-      case requiredBlind g $ getPlayerName p of
-        Just blind -> toNeedsBlindPlayer p blind
-        Nothing -> toNoBlindNeededPlayer p
+      case blindRequiredByPlayer g $ getPlayerName p of
+        Just blind -> NeedsBlindP $ toNeedsBlindPlayer blind p
+        Nothing -> NoBlindNeededP $ toNoBlindNeededPlayer p
+
+-- delete
+toPreflopPlayer' :: Player -> Player
+toPreflopPlayer' = \case
+  p'@(PreHandP p) ->
+    if getChips p' == 0 
+    then InHandP $ toAllInP p
+    else InHandP $ toCanActP p
+  p -> p
+
+toAllInP :: PreHandPlayer -> InHandPlayer
+toAllInP  (HasPostedBlindP HasPostedBlindPlayer{..}) =
+            CannotActP $  AllInP AllInPlayer{..} 
+toAllInP  (HasPostedBlindP HasPostedBlindPlayer{..}) =
+        CannotActP $   AllInP AllInPlayer{..} 
+toAllInP   (NeedsBlindP BlindRequiredPlayer{..}) =
+     CannotActP $ AllInP AllInPlayer{..} 
+
+toCanActP :: PreHandPlayer -> InHandPlayer
+toCanActP p = 
+      CanActP CanActPlayer 
+     {_playerName = getPlayerName $ PreHandP p,
+     _chips = getChips $ PreHandP p,
+     _currBet = Chips 0,
+     _committed = CommittedChips 0,
+     _possibleActions = [],
+     _hasActed = NotActedThisTurn,
+     _pockets = Nothing } 
+
 
 
 -- Everytime the game progresses to another street we need to
 -- reset player statuses if the player has the possibility of acting
 -- this street, that is the player has not folded or still has chips left
 -- to make further bets.
-nextHandStatus :: Chips -> PlayerStatus -> PlayerStatus
-nextHandStatus (Chips 0) _ = SatOut
-nextHandStatus _ a@(InHand _) = SatIn HasPlayedLastHand NotPostedBlind
-nextHandStatus _ SatOut = SatIn HasNotPlayedLastHand NotPostedBlind
-nextHandStatus _ (SatIn playedLastHand hasPostedBlind) = SatIn playedLastHand hasPostedBlind
-
--- Update active players states to prepare them for the next hand.
-nextHandPlayer :: PlayerInfo -> PlayerInfo
-nextHandPlayer PlayerInfo {..} =
-  PlayerInfo
-    { _pockets = Nothing,
-      _playerStatus = nextHandStatus _chips _playerStatus,
-      _committed = CommittedChips 0,
-      ..
-    }
-
-nextHandPlayers :: Game -> Game
-nextHandPlayers = players %~ (<$>) nextHandPlayer
-
--- Everytime the game progresses to another street we need to
--- reset player statuses if the player has the possibility of acting
--- this street, that is the player has not folded or still has chips left
--- to make further bets.
-nextStreetStatus :: PlayerStatus -> PlayerStatus
-nextStreetStatus (InHand AllIn) = InHand AllIn
-nextStreetStatus (InHand Folded) = InHand Folded
-nextStreetStatus (InHand _) = InHand NotActedYet 
-nextStreetStatus s = s
+--notActedYet :: HasActed -> HasActedThisStreet
+--notActedYet _ = NotActedThisTurn
 
 nextStreetPlayers :: Game -> Game
-nextStreetPlayers = players %~ (<$>) (playerStatus %~ nextStreetStatus)
+nextStreetPlayers =
+   players %~ (<$>) setNotActed
+
+setNotActed :: Player -> Player
+setNotActed (InHandP (CanActP p)) = 
+  InHandP $ CanActP $ p & (hasActed .~ NotActedThisTurn)
+setNotActed p = p  
 
 updatePosToAct :: Game -> Game
 updatePosToAct g = g & currentPosToAct %~ nextPosToAct (_players g)
@@ -190,21 +215,21 @@ progressToShowdown game@Game {..} =
 -- folded to him. The winning player then has the choice of whether to "muck"
 -- (not show) his cards or not.
 -- SinglePlayerShowdown occurs when everyone folds to one player
-awardWinners :: [PlayerInfo] -> Int -> Winners -> [PlayerInfo]
+awardWinners :: [Player] -> Int -> Winners -> [Player]
 awardWinners _players pot' = \case
   MultiPlayerShowdown winners' ->
     let chipsPerPlayer = pot' `div` length winners'
         playerNames = snd <$> winners'
      in ( \p ->
-            if _playerName `elem` playerNames
-              then Player { _chips = getChips p <> (Chips chipsPerPlayer), ..}
+            if  getPlayerName p `elem` playerNames
+              then giveChips p (Chips chipsPerPlayer)
               else p
         )
           <$> _players
   SinglePlayerShowdown _ ->
     ( \p ->
         if p `elem` getActivePlayers _players
-          then PlayerInfo {_chips = getChips p <> (Chips pot'), ..}
+          then giveChips p $ Chips pot'
           else p
     )
       <$> _players
@@ -227,8 +252,8 @@ canPubliciseActivesCards g =
 -- new players can of course post their blinds early. In the case of an early posting the initial
 -- blind must be the big blind. After this 'early' blind or the posting of a normal blind in turn the
 -- new player will be removed from the newBlindNeeded field and can play normally.
-getNextHand :: Game -> Deck -> Game
-getNextHand Game {..} shuffledDeck =
+startNewHand :: Game -> Deck -> Game
+startNewHand Game {..} shuffledDeck =
   Game
     { _waitlist = newWaitlist,
       _maxBet = 0,
@@ -249,7 +274,7 @@ getNextHand Game {..} shuffledDeck =
     newPlayers =
       filterSatOutPlayers $
         filterPlayersWithLtChips _bigBlind $
-          nextHandPlayer
+          toPreflopPlayer'
             <$> _players
     newWaitlist = drop freeSeatsNo _waitlist
     nextPlayerToAct = modInc incAmount newDealer (length newPlayers - 1)
@@ -271,7 +296,7 @@ awaitingPlayerAction Game {..} =
   where
     activePlayers = getActivePlayers _players
     callNeeded maxBet' p =
-      canAct _playerStatus == PlayerCanAct
+      canPlayerAct p == PlayerCanAct
         && getChips p > 0
         && getCurrBet p < maxBet'
 
@@ -286,7 +311,7 @@ getWinners game@Game {..} =
     then
       SinglePlayerShowdown $
         head $
-          flip (^.) playerName
+          getPlayerName
             <$> filter inHandAndNotFolded _players
     else MultiPlayerShowdown $ maximums $ getHandRankings _players _board
 
@@ -353,15 +378,14 @@ doesPlayerHaveToAct playerName game@Game {..}
               == 0 ->
             False
           | _street == PreDeal ->
-            pName
+             getPlayerName p
               == playerName
               && ( isNothing $
                      blindRequiredByPlayer game playerName
                  )
           | otherwise ->
-            pName == playerName
+             getPlayerName p == playerName
   where
-    pName = getPlayerName p
     currPosToActOutOfBounds =
       maybe False ((length _players - 1) <) _currentPosToAct
 

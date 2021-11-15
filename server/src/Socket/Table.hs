@@ -151,26 +151,26 @@ runBot gameInMailbox gameOutMailbox botName = do
       runEffect $ yield (progressGame action game) >-> toOutput gameInMailbox
 -}
 
-getValidBotActions :: Game -> PlayerName -> IO [Action]
-getValidBotActions g@Game {..} name = do
-  betAmount' <- randomRIO (lowerBetBound, chipCount)
-  let possibleActions = actions _street betAmount'
-      actionsValidated = validateAction g name <$> possibleActions
-      pNameActionPairs = zip possibleActions actionsValidated
-  return $ (<$>) fst $ filter (isRight . snd) pNameActionPairs
-  where
-    --print "++++Valid actions for " <> show name <> "are: "
-    --print validActions
-    --print
-    --when (null validActions) panic
-    --randIx <- randomRIO (0, length validActions - 1)
-    --return $ Just $ PlayerAction {action = validActions !! randIx, ..}
-    actions :: Street -> Chips -> [Action]
-    actions st chips
-      | st == PreDeal = [PostBlind BigBlind, PostBlind SmallBlind, SitDown (newPreHandPlayer name 1500)]
-      | otherwise = [Check, Call, Fold, Bet chips, Raise chips]
-    lowerBetBound = if _maxBet > 0 then 2 * _maxBet else Chips _bigBlind
-    chipCount = maybe 0 (^. chips) (getGamePlayer g name)
+--getValidBotActions :: Game -> PlayerName -> IO [Action]
+--getValidBotActions g@Game {..} name = do
+--  betAmount' <- randomRIO (lowerBetBound, chipCount)
+--  let possibleActions = actions _street betAmount'
+--      actionsValidated = validateAction g name <$> possibleActions
+--      pNameActionPairs = zip possibleActions actionsValidated
+--  return $ (<$>) fst $ filter (isRight . snd) pNameActionPairs
+--  where
+--    --print "++++Valid actions for " <> show name <> "are: "
+--    --print validActions
+--    --print
+--    --when (null validActions) panic
+--    --randIx <- randomRIO (0, length validActions - 1)
+--    --return $ Just $ PlayerAction {action = validActions !! randIx, ..}
+--    actions :: Street -> Chips -> [Action]
+--    actions st chips
+--      | st == PreDeal = [PostBlind BigBlind, PostBlind SmallBlind, SitDown (newPreHandPlayer name 1500)]
+--      | otherwise = [Check, Call, Fold, Bet chips, Raise chips]
+--    lowerBetBound = if _maxBet > 0 then 2 * _maxBet else Chips _bigBlind
+--    chipCount = maybe 0 (^. chips) (getGamePlayer g name)
 
 -- this is the pipeline of effects we run everytime a new game state
 -- is placed in the tables

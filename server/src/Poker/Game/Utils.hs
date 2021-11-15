@@ -15,56 +15,71 @@ import Poker.Types
 import System.Random (Random (randomR), RandomGen)
 
 
+
+newPlayer username chips =
+     InHandP $  CanActP $ CanActPlayer
+         { _playerName = username,
+          _hasActed = NotActedThisTurn,
+          _pockets = Nothing,
+           _chips = Chips chips,
+          _currBet = Chips 0,
+           _committed = CommittedChips 0,
+           _possibleActions = []
+         }
+
 isSatIn :: Player -> Bool
-isSatIn  (PreHandP (SatOutP SatOutPlayer{})) = False 
+isSatIn (SatOutP _) = False 
 isSatIn _ = True
 
 isSatOut :: Player -> Bool
 isSatOut = not . isSatIn
 
-isAllIn (InHandP (AllInP p)) = True
+isAllIn (InHandP (CannotActP (AllInP p)) )= True
 isAllIn _ = False
 
 
 getPockets (InHandP (CanActP p)) = p ^. pockets
-getPockets (InHandP (FoldedP p)) = p ^. pockets
-getPockets (InHandP (AllInP p)) = p ^. pockets
-getPockets _ =Nothing
+getPockets (InHandP (CannotActP (FoldedP p))) = p ^. pockets
+getPockets (InHandP (CannotActP (AllInP p))) = p ^. pockets
+getPockets _ = Nothing
 
-hasFolded (InHandP (FoldedP _)) = True
-hasFolded (InHandP (AllInP _)) = False 
+hasFolded (InHandP (CannotActP (FoldedP _))) = True
+hasFolded _ = False 
 
 getCommitted (PreHandP (NeedsBlindP p@BlindRequiredPlayer{})) = CommittedChips 0
 getCommitted (PreHandP (NoBlindNeededP p@NoBlindRequiredPlayer{})) =  CommittedChips 0
 getCommitted (PreHandP (HasPostedBlindP p@HasPostedBlindPlayer{})) = p ^. committed
-getCommitted (PreHandP (SatOutP p@SatOutPlayer{})) = CommittedChips 0
+getCommitted  (SatOutP p@SatOutPlayer{}) = CommittedChips 0
 getCommitted (InHandP (CanActP p)) = p ^. committed
-getCommitted (InHandP (FoldedP p)) = p ^. committed
-getCommitted (InHandP (AllInP p)) = p ^. committed
+getCommitted (InHandP (CannotActP (FoldedP p))) = p ^. committed
+getCommitted (InHandP (CannotActP (AllInP p))) = p ^. committed
 
 getCurrBet (InHandP (CanActP p)) =  p ^. currBet
-getCurrBet (InHandP (FoldedP p)) = p ^. currBet
-getCurrBet (InHandP (AllInP p)) =  p ^. currBet
+getCurrBet (InHandP (CannotActP (FoldedP p))) = p ^. currBet
+getCurrBet (InHandP (CannotActP (AllInP p))) =  p ^. currBet
 getCurrBet _ = Chips 0
+
 
 getChips (PreHandP (NeedsBlindP p@BlindRequiredPlayer{})) = p ^. chips
 getChips (PreHandP (NoBlindNeededP p@NoBlindRequiredPlayer{})) = p ^. chips
 getChips (PreHandP (HasPostedBlindP p@HasPostedBlindPlayer{})) = p ^. chips
-getChips (PreHandP (SatOutP p@SatOutPlayer{})) = p ^. chips
+getChips (SatOutP p@SatOutPlayer{}) = p ^. chips
 getChips (InHandP (CanActP p)) = p ^. chips
-getChips (InHandP (FoldedP p)) = p ^. chips
-getChips (InHandP (AllInP _)) = Chips 0
+getChips (InHandP (CannotActP (FoldedP p))) = p ^. chips
+getChips (InHandP (CannotActP (AllInP _))) = Chips 0
 
 getPlayerName (PreHandP (NeedsBlindP p@BlindRequiredPlayer{})) = p ^. playerName
 getPlayerName (PreHandP (NoBlindNeededP p@NoBlindRequiredPlayer{})) = p ^. playerName
 getPlayerName (PreHandP (HasPostedBlindP p@HasPostedBlindPlayer{})) = p ^. playerName
-getPlayerName (PreHandP (SatOutP p@SatOutPlayer{})) = p ^. playerName
+getPlayerName (SatOutP p@SatOutPlayer{}) = p ^. playerName
 getPlayerName (InHandP (CanActP p)) = p ^. playerName
-getPlayerName (InHandP (FoldedP p)) = p ^. playerName
-getPlayerName (InHandP (AllInP p)) = p ^. playerName
+getPlayerName (InHandP (CannotActP (FoldedP p))) = p ^. playerName
+getPlayerName (InHandP (CannotActP (AllInP p))) = p ^. playerName
 
+isFolded (InHandP (CannotActP (FoldedP _))) = True
+isFolded _ = False
 
-inHandAndNotFolded (InHandP (AllInP _))  = True
+inHandAndNotFolded (InHandP (CannotActP (AllInP _)))  = True
 inHandAndNotFolded (InHandP (CanActP _)) = True
 inHandAndNotFolded _ = False
 

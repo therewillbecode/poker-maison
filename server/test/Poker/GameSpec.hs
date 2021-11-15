@@ -23,11 +23,11 @@ import Poker.Game.Game
   ( allButOneAllIn,
     allButOneFolded,
     awaitingPlayerAction,
-    dealToPlayers,
+    deal,
     doesPlayerHaveToAct,
     everyoneAllIn,
     getHandRankings,
-    getNextHand,
+    startNewHand,
     haveAllPlayersActed,
     nextPosToAct,
     progressToFlop,
@@ -230,9 +230,9 @@ turnGameThreePlyrs =
     }
 
 spec = do
-  describe "dealToPlayers" $
+  describe "deal" $
     it "should deal correct number of cards" $ do
-      let (_, newPlayers) = dealToPlayers initialDeck [player1, player3]
+      let (_, newPlayers) = deal initialDeck [player1, player3]
       all
         ( \PlayerInfo {..} ->
             if _playerStatus == SatIn NotFolded
@@ -422,14 +422,14 @@ spec = do
             (\PlayerInfo {..} -> _chips) <$> _players showdownGame
       playerChipCounts `shouldBe` [1500, 1500]
 
-  describe "getNextHand" $ do
+  describe "startNewHand" $ do
     let showdownGame =
           (street .~ Showdown) . (maxBet .~ 1000) . (pot .~ 1000)
             . (deck .~ initialDeck)
             . (dealer .~ 1)
             . (players .~ [(chips .~ 1000) player5, (chips .~ 1000) player2])
             $ initialGameState'
-    let preDealGame = getNextHand showdownGame $ Deck []
+    let preDealGame = startNewHand showdownGame $ Deck []
 
     it "should update street to PreDeal" $
       preDealGame ^. street

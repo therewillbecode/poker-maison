@@ -29,7 +29,7 @@ import Database.Persist.TH
 import Poker.Types
   ( Bet,
     Card,
-    PlayerInfo,
+    Player,
     PlayerName,
     Street,
     Winners,
@@ -55,7 +55,7 @@ share
   GameEntity json sql=games
     tableID TableEntityId
     createdAt UTCTime default=now()
-    players [PlayerInfo]
+    players [Player]
     minBuyInChips Int
     maxBuyInChips Int
     maxPlayers Int

@@ -168,26 +168,6 @@ data Blind
   | BigBlind
   deriving (Show, Eq, Read, Ord, Generic, ToJSON, FromJSON)
 
-data PlayerInHandStatus
-  = NotActedYet
-  | CanAct BetOrChecked
-  | Folded
-  | AllIn
-  deriving (Eq, Show, Read, Ord, Generic, ToJSON, FromJSON)
-
-data HasBet = HasCalled | HasBet Chips | HasRaised Chips
-  deriving (Eq, Show, Read, Ord, Generic, ToJSON, FromJSON)
-
---betSize :: HasBet -> Int
---betSize = \case
---  HasCalled -> n
---  HasBet n -> n
---  HasRaised n -> n
-
-data BetOrChecked = MadeBet HasBet | Checked
-  deriving (Eq, Show, Read, Ord, Generic, ToJSON, FromJSON)
-
-
 
 --data HasActedThisStreet = HasActed | HasNotActed
 --  deriving (Eq, Show, Ord, Read, Generic, ToJSON, FromJSON)
@@ -274,16 +254,9 @@ data AnErr = Err1
 
 
 
-data Player = 
-    PreHandP PreHandPlayer
-  | InHandP InHandPlayer
-  deriving (Eq, Show, Read, Ord, Generic, ToJSON, FromJSON)
-
-
-
 data CanActPlayer = CanActPlayer
   { _playerName :: Text,
-   _status :: PlayerStatus,
+   _hasActed :: HasActedThisStreet,
    _pockets :: Maybe PocketCards,
     _chips :: Chips,
    _currBet :: Chips,
@@ -291,8 +264,73 @@ data CanActPlayer = CanActPlayer
     _possibleActions :: [Action]
   }   deriving (Eq, Show, Read, Ord, Generic, ToJSON, FromJSON)
 
-data PlayerStatus = NotActedThisTurn | ActedThisTurn BetOrChecked 
+data HasActedThisStreet = NotActedThisTurn | ActedThisTurn BetOrChecked 
    deriving (Eq, Show, Read, Ord, Generic, ToJSON, FromJSON)
+
+
+
+
+--data PlayerInHandStatus
+--  = NotActedYet
+--  | CanAct BetOrChecked
+--  | Folded
+--  | AllIn
+--  deriving (Eq, Show, Read, Ord, Generic, ToJSON, FromJSON)
+
+data HasBet = HasCalled | HasBet Chips | HasRaised Chips
+  deriving (Eq, Show, Read, Ord, Generic, ToJSON, FromJSON)
+
+--betSize :: HasBet -> Int
+--betSize = \case
+--  HasCalled -> n
+--  HasBet n -> n
+--  HasRaised n -> n
+
+data BetOrChecked = MadeBet HasBet | Checked
+  deriving (Eq, Show, Read, Ord, Generic, ToJSON, FromJSON)
+
+
+data Player =
+    SatOutP SatOutPlayer
+  | PreHandP PreHandPlayer
+  | InHandP InHandPlayer
+  deriving (Eq, Show, Read, Ord, Generic, ToJSON, FromJSON)
+
+data InHandPlayer = 
+     CanActP CanActPlayer
+   | CannotActP CannotActPlayer 
+  deriving (Eq, Show, Read, Ord, Generic, ToJSON, FromJSON)
+
+data CannotActPlayer = 
+     AllInP AllInPlayer
+   | FoldedP FoldedPlayer 
+  deriving (Eq, Show, Read, Ord, Generic, ToJSON, FromJSON)
+
+data PreHandPlayer =
+   --SatOutP SatOutPlayer
+   NeedsBlindP BlindRequiredPlayer
+  | NoBlindNeededP NoBlindRequiredPlayer
+  | HasPostedBlindP HasPostedBlindPlayer
+   deriving (Eq, Show, Read, Ord, Generic, ToJSON, FromJSON)
+
+
+{-
+
+InHand $ canAct 
+InHand $ CannotAct Folded | AllIn
+
+PreHand PostedBlindIfReqd
+PreHand $ BlindRequired blind
+
+SatOut
+
+-}
+
+--m2TransitionFmA :: BetAction -> (, Mealy Char M1State)
+--m2TransitionFmA _ = (M1B,Mealy m2TransitionFmB)
+--
+--m2TransitionFmB :: FoldAction -> (M1State, Mealy Char M1State)
+--m2TransitionFmB _ = (M1A,Mealy m2TransitionFmA)
 
 --data CannotAct = AlreadyAllIn | HasFolded    
  -- deriving (Eq, Show, Read, Ord, Generic, ToJSON, FromJSON)
@@ -312,34 +350,83 @@ data FoldedPlayer = FoldedPlayer
    _committed :: CommittedChips
   }   deriving (Eq, Show, Read, Ord, Generic, ToJSON, FromJSON)
 
-data InHandPlayer = 
-     CanActP CanActPlayer
-   | AllInP AllInPlayer
-   | FoldedP FoldedPlayer
-   deriving (Eq, Show, Read, Ord, Generic, ToJSON, FromJSON)
 
-data PreHandPlayer =
-   SatOutP SatOutPlayer
-  | NeedsBlindP BlindRequiredPlayer
-  | NoBlindNeededP NoBlindRequiredPlayer
-  | HasPostedBlindP HasPostedBlindPlayer
-   deriving (Eq, Show, Read, Ord, Generic, ToJSON, FromJSON)
+hidePockets :: Player -> Player
+hidePockets  (InHandP (CanActP CanActPlayer{..})) =
+  (InHandP (CanActP CanActPlayer {_pockets = Nothing, ..}))
+hidePockets  (InHandP (CannotActP (AllInP AllInPlayer{..}))) =
+     (InHandP (CannotActP (AllInP AllInPlayer{_pockets = Nothing, ..})))
+hidePockets  (InHandP (CannotActP (FoldedP FoldedPlayer{..}))) =
+     ( InHandP (CannotActP (FoldedP FoldedPlayer{_pockets = Nothing, ..})))
+hidePockets  p@(PreHandP _) = p
+hidePockets   p@(SatOutP _) = p
+
+
 
 toNeedsBlindPlayer :: Blind -> Player -> BlindRequiredPlayer
 toNeedsBlindPlayer _blindRequired (InHandP (CanActP CanActPlayer{..})) =
     BlindRequiredPlayer{..}
-toNeedsBlindPlayer _blindRequired (InHandP (AllInP AllInPlayer{..})) =
-    BlindRequiredPlayer{..}
-toNeedsBlindPlayer _blindRequired ( InHandP (FoldedP FoldedPlayer{..})) =
+toNeedsBlindPlayer _blindRequired (InHandP (CannotActP (AllInP AllInPlayer{..}))) =
+    BlindRequiredPlayer{_chips = Chips 0, ..}
+toNeedsBlindPlayer _blindRequired ( InHandP (CannotActP (FoldedP FoldedPlayer{..}))) =
     BlindRequiredPlayer{..}
 
 toNeedsBlindPlayer _blindRequired (PreHandP (HasPostedBlindP HasPostedBlindPlayer{..})) =
     BlindRequiredPlayer{..}
 toNeedsBlindPlayer _blindRequired (PreHandP (NoBlindNeededP NoBlindRequiredPlayer{..})) =
     BlindRequiredPlayer{..}
-toNeedsBlindPlayer _blindRequired (PreHandP (SatOutP SatOutPlayer{..})) =
+toNeedsBlindPlayer _blindRequired  (SatOutP (SatOutPlayer{..})) =
     BlindRequiredPlayer{..}
 toNeedsBlindPlayer _blindRequired (PreHandP (NeedsBlindP p)) = p
+
+
+toNoBlindNeededPlayer :: Player -> NoBlindRequiredPlayer
+toNoBlindNeededPlayer  (InHandP (CanActP CanActPlayer{..})) =
+    NoBlindRequiredPlayer{..}
+toNoBlindNeededPlayer  (InHandP (CannotActP (AllInP AllInPlayer{..})) )=
+    NoBlindRequiredPlayer{_chips = Chips 0, ..}
+toNoBlindNeededPlayer  ( InHandP (CannotActP (FoldedP FoldedPlayer{..})) )=
+    NoBlindRequiredPlayer{..}
+
+toNoBlindNeededPlayer  (PreHandP (HasPostedBlindP HasPostedBlindPlayer{..})) =
+    NoBlindRequiredPlayer{..}
+toNoBlindNeededPlayer  (PreHandP (NoBlindNeededP p)) =
+    p
+toNoBlindNeededPlayer  (SatOutP (SatOutPlayer{..})) =
+    NoBlindRequiredPlayer{..}
+toNoBlindNeededPlayer  (PreHandP (NeedsBlindP p)) = NoBlindRequiredPlayer{..}
+
+
+sitPlayerOut :: Player -> SatOutPlayer
+sitPlayerOut  (InHandP (CanActP CanActPlayer{..})) =
+    SatOutPlayer{..}
+sitPlayerOut  (InHandP (CannotActP (AllInP AllInPlayer{..})) )=
+    SatOutPlayer{..}
+sitPlayerOut  ( InHandP (CannotActP (FoldedP FoldedPlayer{..}))) =
+    SatOutPlayer{..}
+
+sitPlayerOut  (PreHandP (HasPostedBlindP HasPostedBlindPlayer{..})) =
+    SatOutPlayer{..}
+sitPlayerOut  (PreHandP (NoBlindNeededP NoBlindRequiredPlayer{..})) =
+    SatOutPlayer{..}
+sitPlayerOut  (SatOutP p) = p
+sitPlayerOut  (PreHandP (NeedsBlindP p)) = SatOutPlayer{..}
+
+foldPlayer :: Player -> FoldedPlayer
+foldPlayer  (InHandP (CanActP CanActPlayer{..})) =
+    FoldedPlayer{..}
+foldPlayer  (InHandP (CannotActP (AllInP AllInPlayer{..}))) =
+    FoldedPlayer{..}
+foldPlayer  ( InHandP (CannotActP (FoldedP p))) = p
+
+foldPlayer  (PreHandP (HasPostedBlindP HasPostedBlindPlayer{..})) =
+    FoldedPlayer{..}
+foldPlayer  (PreHandP (NoBlindNeededP p)) =        FoldedPlayer{..}
+foldPlayer  (SatOutP (SatOutPlayer{..})) =
+    FoldedPlayer{..}
+foldPlayer  (PreHandP (NeedsBlindP p)) = FoldedPlayer{..}
+
+
 
 data SatOutPlayer = SatOutPlayer {
   _playerName :: Text,
@@ -392,6 +479,9 @@ data NoBlindRequiredPlayer = NoBlindRequiredPlayer {
 -- validatePreGameMove (sitIn vs sitout etc is a pure machine ) plan
 
 -- validateBlinds move  (canpostblind is a pure machine ) plan
+
+
+
 
 ------------------------- Game Stage -----------------------------------
 newtype FlopBoard = FlopCards (Card, Card, Card)
@@ -483,7 +573,7 @@ nextBettingStatus s _ = s
 -- this scenario mucking or showing refers to the decision to
 -- show ones hand or not to the table after everyone else has folded.
 data Action'
-  = SitDown' PreHandPlayer -- doesnt progress the game
+  = SitDown' Player -- doesnt progress the game
   | LeaveSeat'' -- doesnt progress the game
   | PostBlind' Blind
   | Fold'
@@ -568,7 +658,7 @@ data PlayerAction = PlayerAction
 -- this scenario mucking or showing refers to the decision to
 -- show ones hand or not to the table after everyone else has folded.
 data Action
-  = SitDown PreHandPlayer -- doesnt progress the game
+  = SitDown Player -- doesnt progress the game
   | LeaveSeat' -- doesnt progress the game
   | PostBlind Blind
   | Fold

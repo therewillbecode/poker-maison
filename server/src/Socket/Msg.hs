@@ -35,7 +35,7 @@ import Database
 import Database.Persist.Postgresql (ConnectionString)
 import qualified Network.WebSockets as WS
 import Poker.Game.Game (newPreHandPlayer)
-import Poker.Game.Utils (getGamePlayerNames)
+import Poker.Game.Utils
 import Poker.Poker (newPreHandPlayer, runPlayerAction)
 import Poker.Types
 import Schema
@@ -124,7 +124,7 @@ takeSeatHandler (TakeSeat tableName chipsToSit) = do
       case canSit of
         Left err -> return $ Left err
         Right () -> do
-          let player = newPreHandPlayer (unUsername username) chipsToSit
+          let player = newPlayer (unUsername username) chipsToSit
               playerAction =
                 PlayerAction
                   { name = unUsername username,
@@ -175,16 +175,16 @@ leaveSeatHandler leaveSeatMove@(LeaveSeat tableName) = do
             Right newGame -> do
               let maybePlayer =
                     find
-                      (\PlayerInfo {..} -> unUsername username == _playerName)
+                      (\p -> unUsername username == getPlayerName p)
                       (_players game)
               case maybePlayer of
                 Nothing -> return $ Left $ NotSatInGame tableName
-                Just PlayerInfo {_chips = chipsInPlay, ..} -> do
+                Just p -> do
                   liftIO $
                     dbWithdrawChipsFromPlay
                       dbConn
                       (unUsername username)
-                      (unChips chipsInPlay)
+                      (unChips $ getChips p)
                   let msgOut = NewGameState tableName newGame
                   liftIO $
                     atomically $
