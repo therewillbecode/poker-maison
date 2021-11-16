@@ -341,14 +341,16 @@ nextInHandPlayer s _ = s
 
 
 --each seat at table is a mealy machine
-basically need a Player Monad which is essentially state monad
+basically need a Player Monad which is essentially state monad (MealyT)
 and then _playerState =  
     InHand (CanAct | CannotAct (Folded | AllIn))
     | PreHand (BlindRequired NoBlindRequired HasPostedBlind )
 So yes scrap all the types you made and just encode them in a field
 called playerState
 
-bet :: InHandPlayer -> Chips -> (Player, Mealy Action PlayerState)
+player is a state monad with things like bet fold newStreet newHand
+
+bet :: InHandPlayer -> Chips -> (Player, MealyT (Player) Action PlayerState)
 bet (CanActP CanActPlayer{..}) bet'
   
   | _chips - bet' == 0 = 
