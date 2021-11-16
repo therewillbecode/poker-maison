@@ -144,6 +144,19 @@ unChips (Chips n) = n
 fromCommittedChips :: CommittedChips -> Int
 fromCommittedChips (CommittedChips cs) = cs
 
+
+newPlayer name chips =
+     InHandP $  CanActP $ CanActPlayer
+         { _playerName = name,
+          _hasActed = NotActedThisTurn,
+          _pockets = Nothing,
+           _chips = Chips chips,
+          _currBet = Chips 0,
+           _committed = CommittedChips 0,
+           _possibleActions = []
+         }
+
+
 data CanPlayerAct = PlayerCanAct | PlayerCannotAct
   deriving (Eq, Ord, Show, Read, Generic, ToJSON, FromJSON)
 
@@ -313,6 +326,55 @@ data PreHandPlayer =
   | HasPostedBlindP HasPostedBlindPlayer
    deriving (Eq, Show, Read, Ord, Generic, ToJSON, FromJSON)
 
+
+initInHandPlayer :: PlayerName -> Chips -> Mealy Action Player
+initInHandPlayer name chips =
+  unfoldMealy
+    (\player action ->
+        (nextInHandPlayer player action,  next))
+    newPlayer name chips
+  
+
+nextInHandPlayer :: InHandPlayer -> Action -> InHandPlayer
+nextInHandPlayer (CanActP (CanActPlayer {..})) _ = undefined
+nextInHandPlayer s _ = s
+
+
+--each seat at table is a mealy machine
+basically need a Player Monad which is essentially state monad
+and then _playerState =  
+    InHand (CanAct | CannotAct (Folded | AllIn))
+    | PreHand (BlindRequired NoBlindRequired HasPostedBlind )
+So yes scrap all the types you made and just encode them in a field
+called playerState
+
+bet :: InHandPlayer -> Chips -> (Player, Mealy Action PlayerState)
+bet (CanActP CanActPlayer{..}) bet'
+  
+  | _chips - bet' == 0 = 
+    (InHandP $ CannotActP $ AllInP $ AllInPlayer{..}, 
+    const $ Mealy $ InHandP $ CannotActP $ AllInP $ AllInPlayer{..})
+  
+  | otherwise = 
+    (InHandP $ CanActP CanActPlayer{_chips = _chips - bet', ..}, canAct)
+    
+canAct :: Action -> ()
+canAct = \case
+  Fold -> (InHandP $ FoldedP $ FoldedPlayer {..}, Mealy folded)
+
+folded :: Mealy Action PlayerState 
+folded = (Mealy newHand
+
+newHand :: MealyAction PlayerState
+newHand 
+
+-- board is a moore
+placeBet :: Chips -> (InHandPlayer, Mealy Action InHandPlayer)
+placeBet chips = (p, Mealy turn)
+
+-- | Transition function from state M1A
+check :: (GameStage, Mealy Action InHandPlayer)
+check = (Turn' undefined, Mealy river)
 
 {-
 
@@ -531,11 +593,11 @@ data BettingStatus
   | EveryoneAllIn'
   deriving (Eq, Show, Ord, Read, Generic, ToJSON, FromJSON)
 
-initBettingStatus :: PlayerName -> Mealy Action (BettingStatus, Action)
+initBettingStatus :: PlayerName -> Mealy Action BettingStatus
 initBettingStatus pName =
   unfoldMealy
     ( \status action ->
-        (,) (status, action) $ nextBettingStatus status action
+       (status, nextBettingStatus status action)
     )
     fstPlayerToAct
   where

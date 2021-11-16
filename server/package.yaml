@@ -39,6 +39,7 @@ dependencies:
   - servant-foreign
   - servant-options
   - servant-websockets
+  - streamly
   - pipes
   - pipes-aeson
   - pipes-concurrency

@@ -16,17 +16,6 @@ import System.Random (Random (randomR), RandomGen)
 
 
 
-newPlayer username chips =
-     InHandP $  CanActP $ CanActPlayer
-         { _playerName = username,
-          _hasActed = NotActedThisTurn,
-          _pockets = Nothing,
-           _chips = Chips chips,
-          _currBet = Chips 0,
-           _committed = CommittedChips 0,
-           _possibleActions = []
-         }
-
 isSatIn :: Player -> Bool
 isSatIn (SatOutP _) = False 
 isSatIn _ = True
