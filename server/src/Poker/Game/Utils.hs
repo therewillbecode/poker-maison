@@ -7,7 +7,7 @@ module Poker.Game.Utils where
 import Control.Lens ((^.))
 import Data.Bool (bool)
 import Data.Foldable (find)
-import Data.List (elemIndex, find)
+import Data.List (elemIndex,findIndex,  find)
 import Data.Map.Lazy (Map)
 import qualified Data.Map.Lazy as M
 import Data.Text (Text)
@@ -23,60 +23,46 @@ isSatIn _ = True
 isSatOut :: Player -> Bool
 isSatOut = not . isSatIn
 
-isAllIn (InHandP (CannotActP (AllInP p)) )= True
+isAllIn (InHandP InHandPlayer{..}) = _status == CannotAct IsAllIn
 isAllIn _ = False
 
-
-getPockets (InHandP (CanActP p)) = p ^. pockets
-getPockets (InHandP (CannotActP (FoldedP p))) = p ^. pockets
-getPockets (InHandP (CannotActP (AllInP p))) = p ^. pockets
+getPockets (InHandP p) = p ^. pockets
 getPockets _ = Nothing
 
-hasFolded (InHandP (CannotActP (FoldedP _))) = True
-hasFolded _ = False 
 
-getCommitted (PreHandP (NeedsBlindP p@BlindRequiredPlayer{})) = CommittedChips 0
-getCommitted (PreHandP (NoBlindNeededP p@NoBlindRequiredPlayer{})) =  CommittedChips 0
-getCommitted (PreHandP (HasPostedBlindP p@HasPostedBlindPlayer{})) = p ^. committed
+getCommitted (PreHandP p) = p ^. committed
 getCommitted  (SatOutP p@SatOutPlayer{}) = CommittedChips 0
-getCommitted (InHandP (CanActP p)) = p ^. committed
-getCommitted (InHandP (CannotActP (FoldedP p))) = p ^. committed
-getCommitted (InHandP (CannotActP (AllInP p))) = p ^. committed
+getCommitted (InHandP p) = p ^. committed
 
-getCurrBet (InHandP (CanActP p)) =  p ^. currBet
-getCurrBet (InHandP (CannotActP (FoldedP p))) = p ^. currBet
-getCurrBet (InHandP (CannotActP (AllInP p))) =  p ^. currBet
+getCurrBet (InHandP p) =  p ^. currBet
 getCurrBet _ = Chips 0
 
 
-getChips (PreHandP (NeedsBlindP p@BlindRequiredPlayer{})) = p ^. chips
-getChips (PreHandP (NoBlindNeededP p@NoBlindRequiredPlayer{})) = p ^. chips
-getChips (PreHandP (HasPostedBlindP p@HasPostedBlindPlayer{})) = p ^. chips
+getChips (PreHandP ( p@PreHandPlayer{})) = p ^. chips
 getChips (SatOutP p@SatOutPlayer{}) = p ^. chips
-getChips (InHandP (CanActP p)) = p ^. chips
-getChips (InHandP (CannotActP (FoldedP p))) = p ^. chips
-getChips (InHandP (CannotActP (AllInP _))) = Chips 0
+getChips (InHandP p) = p ^. chips
 
-getPlayerName (PreHandP (NeedsBlindP p@BlindRequiredPlayer{})) = p ^. playerName
-getPlayerName (PreHandP (NoBlindNeededP p@NoBlindRequiredPlayer{})) = p ^. playerName
-getPlayerName (PreHandP (HasPostedBlindP p@HasPostedBlindPlayer{})) = p ^. playerName
+getPlayerName (PreHandP (p@PreHandPlayer{})) = p ^. playerName
+
 getPlayerName (SatOutP p@SatOutPlayer{}) = p ^. playerName
-getPlayerName (InHandP (CanActP p)) = p ^. playerName
-getPlayerName (InHandP (CannotActP (FoldedP p))) = p ^. playerName
-getPlayerName (InHandP (CannotActP (AllInP p))) = p ^. playerName
 
-isFolded (InHandP (CannotActP (FoldedP _))) = True
+getPlayerName (InHandP p) = p ^. playerName
+getPlayerName (InHandP  p) = p ^. playerName
+getPlayerName (InHandP  p) = p ^. playerName
+
+isFolded :: Player -> Bool
+isFolded (InHandP InHandPlayer{..}) = _status == CannotAct HasFolded
 isFolded _ = False
 
-inHandAndNotFolded (InHandP (CannotActP (AllInP _)))  = True
-inHandAndNotFolded (InHandP (CanActP _)) = True
+inHandAndNotFolded (InHandP InHandPlayer{..}) = _status == CannotAct HasFolded
 inHandAndNotFolded _ = False
 
-canPlayerAct (InHandP (CanActP p)) = PlayerCanAct
-canPlayerAct _ = PlayerCannotAct
+canPlayerAct :: InHandPlayer -> Bool
+canPlayerAct (InHandP InHandPlayer{..}) = _status == CanAct
+canPlayerAct (PreHandP PreHandPlayer{..}) = _status == NoBlindRequired
+canPlayerAct _ = False
 
-shouldDeal (PreHandP (NoBlindNeededP p@NoBlindRequiredPlayer{})) = True
-shouldDeal (PreHandP (HasPostedBlindP p@HasPostedBlindPlayer{})) = True
+shouldDeal (PreHandP ( p@PreHandPlayer{})) = True
 shouldDeal _ = False
 
 
@@ -127,8 +113,8 @@ modDec num modulo
 -- as there can be no future participation in this hand
 -- whereas sat in means that the player has at the very least had some historical participation
 -- in the current hand
-getActivePlayers :: [Player] -> [Player]
-getActivePlayers = filter (((==) PlayerCanAct) . canPlayerAct)
+getActivePlayers :: [InHandPlayer] -> [InHandPlayer]
+getActivePlayers = filter canPlayerAct
 
 filterPlayersWithLtChips :: Int -> [Player] -> [Player]
 filterPlayersWithLtChips count =
@@ -137,24 +123,20 @@ filterPlayersWithLtChips count =
       getChips p >= Chips count
     )
 
-filterSatOutPlayers :: [Player] -> [Player]
-filterSatOutPlayers = filter isSatOut
+--filterSatOutPlayers :: [Player] -> [Player]
+--filterSatOutPlayers = filter isSatOut
 
-countActive :: [Player] -> Int
+countActive :: [InHandPlayer] -> Int
 countActive = length . getActivePlayers
 
 --actedThisTurn :: PlayerStatus -> HasActedThisStreet
 --actedThisTurn (InHand (CanAct mbLastAction)) = isJust mbLastAction
 
+canAnyPlayerAct :: [InHandPlayer] -> Bool
+canAnyPlayerAct ps = any canPlayerAct ps
 
-canPlayersAct :: Functor f => f Player -> f CanPlayerAct
-canPlayersAct ps = canPlayerAct <$> ps
-
-canAnyPlayerAct :: [Player] -> Bool
-canAnyPlayerAct = elem PlayerCanAct . canPlayersAct
-
-bettingActionStatus :: [Player] -> BettingAction
-bettingActionStatus ps
+handStatus :: [InHandPlayer] -> HandStatus
+handStatus ps
   | allButOneFolded ps = EveryoneFolded
   | playersNotAllIn ps == 1 = EveryoneAllIn
   | canAnyPlayerAct ps = AwaitingPlayerAction
@@ -164,7 +146,7 @@ bettingActionStatus ps
 allButOneAllIn :: [Player] -> Bool
 allButOneAllIn = (== 1) . playersNotAllIn
 
-playersNotAllIn :: [Player] -> Int
+playersNotAllIn :: [InHandPlayer] -> Int
 playersNotAllIn ps
   | numPlayersIn < 2 = 0
   | otherwise = numPlayersIn - numPlayersAllIn
@@ -176,65 +158,69 @@ playersNotAllIn ps
 
 
 -- The game should go straight to showdown if all but one players is In hand
-allButOneFolded :: [Player] -> Bool
+allButOneFolded :: [InHandPlayer] -> Bool
 allButOneFolded ps = length inHandAndNotFolded' <= 1
   where
     inHandAndNotFolded' = filter inHandAndNotFolded ps
 
--- get all players who are not currently sat out
-getPlayersSatIn :: [Player] -> [Player]
-getPlayersSatIn = filter isSatOut
 
 
 -- player position is the order of a given player in the set of all players with a
 -- playerStatus of In or in other words the players that are both sat at the table and active
 -- return Nothing if the given playerName is not sat at table
-getPlayerPosition :: [PlayerName] -> PlayerName -> Maybe Int
-getPlayerPosition playersSatIn playerName = playerName `elemIndex` playersSatIn
+--getPlayerPosition :: [PlayerName] -> PlayerName -> Maybe Int
+--getPlayerPosition players playerName = playerName `elemIndex` players
 
-getPlayerPosition' :: PlayerName -> [Player] -> Maybe Int
-getPlayerPosition' playerName = flip getPlayerPosition playerName . getPlayerNames . getPlayersSatIn
+--getPlayerPosition' :: PlayerName -> p -> Maybe Int
+--getPlayerPosition' playerName = 
+--  flip getPlayerPosition playerName . getPlayerNames
 
-getGameStage :: Game -> Street
+getGameStage :: HandInProgress -> Street
 getGameStage game = game ^. street
 
-getGamePlayers :: Game -> [Player]
-getGamePlayers game = game ^. players
 
-getGamePlayer :: Game -> PlayerName -> Maybe Player
-getGamePlayer game playerName =
-  find (\p-> getPlayerName p == playerName) $ _players game
+
+--getGamePlayer ::_-> PlayerName -> Maybe Player
+--getGamePlayer game playerName =
+ -- find (\p-> getPlayerName p == playerName) $ getGamePlayers game
 
 --getGamePlayerState :: Game -> PlayerName -> Maybe PlayerStatus
 --getGamePlayerState game playerName = do
 --  PlayerInfo {..} <- getGamePlayer game playerName
 --  return _playerStatus
 
-getGamePlayerNames :: Game -> [Text]
-getGamePlayerNames game = getPlayerName <$> _players game
+--getGamePlayerNames :: _ -> [Text]
+--getPlayerNames game = getPlayerName <$> getGamePlayers game
 
 
 --getPlayerChipCounts :: Game -> [(Text, Int)]
 --getPlayerChipCounts Game {..} =
  -- (\PlayerInfo {..} -> (_playerName, unChips _chips)) <$> _players
 
-getPlayerNames :: [Player] -> [Text]
-getPlayerNames players = getPlayerName <$> players
+--getInHandPlayerNames :: [InHandPlayer] -> [Text]
+--getInHandPlayerNames players = getPlayerName <$> players
+--
+
+getPlayers :: HasPlayers g [p] => g -> [p]
+getPlayers g = g ^. players
+
+getPlayerPos :: HasPlayerName p Text => Text -> [p] -> Maybe Int
+getPlayerPos pName = findIndex $ \p -> (p ^. playerName) == pName
+
+getPlayer :: HasPlayerName p Text => Text -> [p] -> Maybe p
+getPlayer pName = find $ \p -> (p ^. playerName) == pName
+
 
 -- Nothing for currentPosToAct during Predeal means that the first blind
 -- can be posted from any position as this is the first blind to get a new game started
 -- on the otherhand a value of Just pos means that pos is the position that we require a blind to
 -- be posted from next as a game is underway.
-inPositionToAct :: PlayerName -> Game -> Bool
-inPositionToAct playerName Game {..} =
-  case playerPos of
+inPositionToAct :: PlayerName -> HandInProgress -> Bool
+inPositionToAct pName HandInProgress {..} =
+  case getPlayerPos pName _players of
     Nothing -> False
-    Just pos -> case _currentPosToAct of
-      Nothing -> _street == PreDeal -- Wheareas Nothing during Predeal means anyone can act
-      -- Nothing in currentPostToAct field after predeal means no player can act.
-      Just posToAct -> pos == posToAct
-  where
-    playerPos = getPlayerPosition' playerName _players
+    Just pos -> pos == _currentPosToAct
+ 
 
 maximums :: Ord a => [(a, b)] -> [(a, b)]
 maximums [] = []

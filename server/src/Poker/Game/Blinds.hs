@@ -61,11 +61,13 @@ activatePlayersWhenNoBlindNeeded :: [Maybe Blind] -> [Player] -> [Player]
 activatePlayersWhenNoBlindNeeded = zipWith updatePlayer
   where
     updatePlayer blindReq player =
-      PreHandP $ NoBlindNeededP $
-        NoBlindRequiredPlayer
+      PreHandP $
+        PreHandPlayer
           { 
             _playerName = getPlayerName player,
-             _chips = getChips player, ..}
+             _chips = getChips player, 
+             __blindStatus = toBlindStatus blindReq,
+             ..}
       --  { _playerStatus =
       --      if isNothing blindReq
       --        then if _chips == 0 then InHand AllIn else InHand NotActedYet

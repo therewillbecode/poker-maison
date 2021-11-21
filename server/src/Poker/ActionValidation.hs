@@ -289,3 +289,4 @@ canShowOrMuckHand name game@Game {..}
         InvalidMove name $
           CannotShowHandOrMuckHand
             "Can only show or muck cards if winner of single player pot during showdown"
+

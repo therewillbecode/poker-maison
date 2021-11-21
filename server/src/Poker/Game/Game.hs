@@ -30,17 +30,17 @@ dealToPlayers =
     )
 
 dealPlayer :: Player -> PocketCards -> Player
-dealPlayer (InHandP (CanActP p)) pocketCs =
-  (InHandP (CanActP (p & (pockets ?~ pocketCs))))
-dealPlayer (InHandP (  CannotActP (AllInP p)))  pocketCs =
-  (InHandP (   CannotActP $  (AllInP (p & (pockets ?~ pocketCs)))))
+dealPlayer (InHandP  p) pocketCs =
+  (InHandP  (p & (pockets ?~ pocketCs)))
+dealPlayer (InHandP p)  pocketCs =
+  (InHandP  (p & (pockets ?~ pocketCs)))
 dealPlayer p _ = p
 
 giveChips :: Player -> Chips -> Player
-giveChips  (InHandP (CanActP p)) chips'= 
-  InHandP   (CanActP $ p & (chips <>~ chips'))
-giveChips (InHandP (      CannotActP  (AllInP p))) chips' = 
-  InHandP (     CannotActP   (AllInP  p )) --todo fix
+giveChips  (InHandP p) chips'= 
+  InHandP   (p & (chips <>~ chips'))
+giveChips (InHandP p) chips' = 
+  InHandP (p & (chips <>~ chips')) --todo fix
 giveChips p _ = p
 
 dealPockets :: Deck -> (PocketCards, Deck)
@@ -81,10 +81,9 @@ newPreHandPlayer :: Game -> Player -> PreHandPlayer
 newPreHandPlayer g p = preHandPlayer
   where
     preHandPlayer = 
-      case blindRequiredByPlayer g $ getPlayerName p of
-        Just blind -> NeedsBlindP $ toNeedsBlindPlayer blind p
-        Nothing -> NoBlindNeededP $ toNoBlindNeededPlayer p
-
+      toPreHandPlayer p $ 
+         blindRequiredByPlayer g $ getPlayerName p
+       
 -- delete
 toPreflopPlayer' :: Player -> Player
 toPreflopPlayer' = \case
@@ -95,24 +94,24 @@ toPreflopPlayer' = \case
   p -> p
 
 toAllInP :: PreHandPlayer -> InHandPlayer
-toAllInP  (HasPostedBlindP HasPostedBlindPlayer{..}) =
-            CannotActP $  AllInP AllInPlayer{..} 
-toAllInP  (HasPostedBlindP HasPostedBlindPlayer{..}) =
-        CannotActP $   AllInP AllInPlayer{..} 
-toAllInP   (NeedsBlindP BlindRequiredPlayer{..}) =
-     CannotActP $ AllInP AllInPlayer{..} 
+toAllInP (PreHandPlayer{..}) =
+            InHandPlayer{ _status = CannotAct IsAllIn,..} 
+toAllInP (PreHandPlayer{..}) =
+           InHandPlayer{ _status = CannotAct IsAllIn,..} 
+toAllInP (PreHandPlayer{..}) =
+            InHandPlayer{ _status = CannotAct IsAllIn,..} 
 
 toCanActP :: PreHandPlayer -> InHandPlayer
 toCanActP p = 
-      CanActP CanActPlayer 
+       InHandPlayer 
      {_playerName = getPlayerName $ PreHandP p,
      _chips = getChips $ PreHandP p,
      _currBet = Chips 0,
      _committed = CommittedChips 0,
      _possibleActions = [],
+     _status = CanAct,
      _hasActed = NotActedThisTurn,
      _pockets = Nothing } 
-
 
 
 -- Everytime the game progresses to another street we need to
@@ -127,8 +126,8 @@ nextStreetPlayers =
    players %~ (<$>) setNotActed
 
 setNotActed :: Player -> Player
-setNotActed (InHandP (CanActP p)) = 
-  InHandP $ CanActP $ p & (hasActed .~ NotActedThisTurn)
+setNotActed (InHandP p) = 
+  InHandP $ p & (hasActed .~ NotActedThisTurn)
 setNotActed p = p  
 
 updatePosToAct :: Game -> Game
@@ -296,7 +295,7 @@ awaitingPlayerAction Game {..} =
   where
     activePlayers = getActivePlayers _players
     callNeeded maxBet' p =
-      canPlayerAct p == PlayerCanAct
+      canPlayerAct p 
         && getChips p > 0
         && getCurrBet p < maxBet'
 
@@ -372,7 +371,7 @@ doesPlayerHaveToAct playerName game@Game {..}
               == Showdown
               || countActive _players < 2
               || haveAllPlayersActed game
-              || (PlayerCannotAct == canPlayerAct p)
+              || canPlayerAct p
               || _street
               == PreDeal && _maxBet
               == 0 ->
@@ -410,7 +409,7 @@ nextIxPlayerToAct ps = nextIPlayer
       Just currPos ->
         let nextIxPlayerToAct = tail $ iplayers' currPos
          in find
-              (\(_, p) -> PlayerCanAct == canPlayerAct p)
+              (\(_, p) -> canPlayerAct p)
               nextIxPlayerToAct
 
 -- gets the position of the next player which needs to act
@@ -425,7 +424,7 @@ nextPosToAct ps currPostToAct
   where
     activePs = getActivePlayers ps
     activePCount = length activePs
-    status = bettingActionStatus ps
+    status = handStatus ps
 
 -- used to get the initial player to act when progressing to a new game stage
 firstPosToAct :: Game -> Maybe Int

@@ -22,18 +22,18 @@ import Poker.Game.Utils
 --   hasEnoughChips = unChips chips' > betSize
 --      betAmount = bool (unChips chips') betSize hasEnoughChips
 
-makeBet :: Bool -> Chips -> PlayerName -> Game -> Game
-makeBet isCall betSize pName game@Game {..} = undefined
---  updateMaxBet betSize game
---    & (players %~ placePlayerBet)
---      . (currentPosToAct %~ nextPosToAct _players)
---      . (pot +~ betSize)
---  where
---    placePlayerBet = (<$>) $
---      \p@PlayerInfo {..} ->
---        if _playerName == pName
---          then placeBet isCall betSize p
---          else p
+makeBet :: Bool -> Chips -> PlayerName -> HandInProgress -> Game
+makeBet isCall betSize pName game@Game {..} =
+  updateMaxBet betSize game
+    & (players %~ placePlayerBet)
+      . (currentPosToAct %~ nextPosToAct _players)
+      . (pot +~ betSize)
+  where
+    placePlayerBet = (<$>) $
+      \p@PlayerInfo {..} ->
+        if _playerName == pName
+          then placeBet isCall betSize p
+          else p
 
 -- Update table maxBet and pot as well as player state and chip count
 placeBet :: Bool -> Chips -> Player -> Player
@@ -111,10 +111,13 @@ foldCards pName game@Game {..} =
     newPlayers =
       ( \p ->
           if getPlayerName p == pName
-            then InHandP $  CannotActP $  FoldedP $ foldPlayer p
+            then  foldPlayer p
             else p
       )
         <$> _players
+
+foldPlayer :: InHandPlayer -> InHandPlayer
+foldPlayer = status .~ CannotAct HasFolded
 
 call :: PlayerName -> Game -> Game
 call pName game@Game {..} = undefined

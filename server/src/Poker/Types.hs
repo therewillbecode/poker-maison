@@ -14,10 +14,10 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE DuplicateRecordFields #-}
-{-# LANGUAGE MultiParamTypeClasses  #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE FunctionalDependencies #-}
-{-# LANGUAGE FlexibleInstances  #-}
-{-# LANGUAGE NamedFieldPuns  #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE NamedFieldPuns #-}
 
 module Poker.Types where
 
@@ -35,108 +35,108 @@ import GHC.Generics (Generic)
 import System.Random (Random)
 
 data Rank
-  = Two
-  | Three
-  | Four
-  | Five
-  | Six
-  | Seven
-  | Eight
-  | Nine
-  | Ten
-  | Jack
-  | Queen
-  | King
-  | Ace
-  deriving (Eq, Read, Ord, Bounded, Enum, Generic, ToJSON, FromJSON)
+   = Two
+   | Three
+   | Four
+   | Five
+   | Six
+   | Seven
+   | Eight
+   | Nine
+   | Ten
+   | Jack
+   | Queen
+   | King
+   | Ace
+   deriving (Eq, Read, Ord, Bounded, Enum, Generic, ToJSON, FromJSON)
 
 instance Show Rank where
-  show x = case x of
-    Two -> "2"
-    Three -> "3"
-    Four -> "4"
-    Five -> "5"
-    Six -> "6"
-    Seven -> "7"
-    Eight -> "8"
-    Nine -> "9"
-    Ten -> "T"
-    Jack -> "J"
-    Queen -> "Q"
-    King -> "K"
-    Ace -> "A"
+  show x =
+    case x of
+       Two -> "2"
+       Three -> "3"
+       Four -> "4"
+       Five -> "5"
+       Six -> "6"
+       Seven -> "7"
+       Eight -> "8"
+       Nine -> "9"
+       Ten -> "T"
+       Jack -> "J"
+       Queen -> "Q"
+       King -> "K"
+       Ace -> "A"
 
 data Suit
-  = Clubs
-  | Diamonds
-  | Hearts
-  | Spades
-  deriving (Eq, Ord, Bounded, Enum, Read, Generic, ToJSON, FromJSON)
+   = Clubs
+   | Diamonds
+   | Hearts
+   | Spades
+   deriving (Eq, Ord, Bounded, Enum, Read, Generic, ToJSON, FromJSON)
 
 instance Show Suit where
-  show x = case x of
-    Clubs -> "♧ "
-    Diamonds -> "♢ "
-    Hearts -> "♡ "
-    Spades -> "♤ "
+   show x = case x of
+     Clubs -> "♧ "
+     Diamonds -> "♢ "
+     Hearts -> "♡ "
+     Spades -> "♤ "
 
 data Card = Card
-  { rank :: Rank,
-    suit :: Suit
-  }
-  deriving (Eq, Read, Generic, ToJSON, FromJSON)
+   { rank :: Rank,
+   suit :: Suit
+   }
+   deriving (Eq, Read, Generic, ToJSON, FromJSON)
 
 instance Ord Card where
-  compare = compare `on` rank
+   compare = compare `on` rank
 
 instance Show Card where
-  show (Card r s) = show r ++ show s
+   show (Card r s) = show r ++ show s
 
 data HandRank
-  = HighCard
-  | Pair
-  | TwoPair
-  | Trips
-  | Straight
-  | Flush
-  | FullHouse
-  | Quads
-  | StraightFlush
-  deriving (Eq, Ord, Show, Read, Generic, ToJSON, FromJSON)
+ = HighCard
+ | Pair
+ | TwoPair
+ | Trips
+ | Straight
+ | Flush
+ | FullHouse
+ | Quads
+ | StraightFlush
+ deriving (Eq, Ord, Show, Read, Generic, ToJSON, FromJSON)
 
 type Bet = Int
 
 --data ActivePlayerState
---  = SatOut -- SatOut denotes a player that will not be dealt cards unless they send a postblinds action to the server
---  | Folded
---  | In
---  deriving (Eq, Show, Ord, Enum, Bounded, Read, Generic, ToJSON, FromJSON)
+-- = SatOut -- SatOut denotes a player that will not be dealt cards unless they send a postblinds action to the server
+-- | Folded
+-- | In
+-- deriving (Eq, Show, Ord, Enum, Bounded, Read, Generic, ToJSON, FromJSON)
 
 data PocketCards
-  = PocketCards Card Card
-  deriving (Show, Eq, Read, Ord, Generic, ToJSON, FromJSON)
+ = PocketCards Card Card
+ deriving (Show, Eq, Read, Ord, Generic, ToJSON, FromJSON)
 
 unPocketCards :: PocketCards -> [Card]
 unPocketCards (PocketCards c1 c2) = [c1, c2]
 
 newtype Chips = Chips Int
-  deriving newtype (Num, Random)
-  deriving (Eq, Show, Ord, Read, Generic, ToJSON, FromJSON)
+ deriving newtype (Num, Random)
+ deriving (Eq, Show, Ord, Read, Generic, ToJSON, FromJSON)
 
 instance Semigroup Chips where
-  (<>) (Chips a) (Chips b) = Chips $ a + b
+ (<>) (Chips a) (Chips b) = Chips $ a + b
 
 -- The amount of chips bet by the player this turn.
 newtype CommittedChips = CommittedChips Int deriving (Eq, Show, Ord, Read, Generic, ToJSON, FromJSON)
 
 instance Semigroup CommittedChips where
-  (<>) (CommittedChips a) (CommittedChips b) =
-    CommittedChips $ a + b
+ (<>) (CommittedChips a) (CommittedChips b) = CommittedChips $ a + b
 
 mkChips :: Int -> Maybe Chips
 mkChips n
-  | n < 0 = Nothing
-  | otherwise = pure $ Chips n
+ | n < 0 = Nothing
+ | otherwise = pure $ Chips n
 
 unChips :: Chips -> Int
 unChips (Chips n) = n
@@ -145,71 +145,74 @@ fromCommittedChips :: CommittedChips -> Int
 fromCommittedChips (CommittedChips cs) = cs
 
 
+newPlayer :: Text -> Int -> Player
 newPlayer name chips =
-     InHandP $  CanActP $ CanActPlayer
-         { _playerName = name,
-          _hasActed = NotActedThisTurn,
-          _pockets = Nothing,
-           _chips = Chips chips,
-          _currBet = Chips 0,
-           _committed = CommittedChips 0,
-           _possibleActions = []
-         }
+ InHandP $ InHandPlayer
+ { _playerName = name,
+ _hasActed = NotActedThisTurn,
+ _status = status,
+ _pockets = Nothing,
+ _chips = Chips chips,
+ _currBet = Chips 0,
+ _committed = CommittedChips 0,
+ _possibleActions = []
+ }
+ where status = if chips == 0 then CannotAct IsAllIn else CanAct
 
 
 data CanPlayerAct = PlayerCanAct | PlayerCannotAct
-  deriving (Eq, Ord, Show, Read, Generic, ToJSON, FromJSON)
+   deriving (Eq, Ord, Show, Read, Generic, ToJSON, FromJSON)
 
 -- WasNotInLastHand:
---   Sometimes a player joins an in progress game and thus are
---   not on BB or SB position. PlayerWasNotInLastHand denotes
---   the fact the new player can choose to post an 'extra' blind
---   to play immediately. Or the player can wait till the blind
---   comes around to them.
+-- Sometimes a player joins an in progress game and thus are
+-- not on BB or SB position. PlayerWasNotInLastHand denotes
+-- the fact the new player can choose to post an 'extra' blind
+-- to play immediately. Or the player can wait till the blind
+-- comes around to them.
 --
 newtype RequiredBlind = RequiredBlind (Maybe Blind)
-  deriving (Eq, Ord, Show, Read, Generic, ToJSON, FromJSON)
+   deriving (Eq, Ord, Show, Read, Generic, ToJSON, FromJSON)
 
 data PlayedLastHand = HasNotPlayedLastHand | HasPlayedLastHand
-  deriving (Eq, Show, Read, Ord, Generic, ToJSON, FromJSON)
+   deriving (Eq, Show, Read, Ord, Generic, ToJSON, FromJSON)
 
 data HasPostedBlind = NotPostedBlind | PostedBlind Blind
-  deriving (Eq, Ord, Show, Read, Generic, ToJSON, FromJSON)
+   deriving (Eq, Ord, Show, Read, Generic, ToJSON, FromJSON)
 
 data Blind
-  = SmallBlind
-  | BigBlind
-  deriving (Show, Eq, Read, Ord, Generic, ToJSON, FromJSON)
+   = SmallBlind
+   | BigBlind
+   deriving (Show, Eq, Read, Ord, Generic, ToJSON, FromJSON)
 
 
 --data HasActedThisStreet = HasActed | HasNotActed
---  deriving (Eq, Show, Ord, Read, Generic, ToJSON, FromJSON)
+-- deriving (Eq, Show, Ord, Read, Generic, ToJSON, FromJSON)
 
 -- data GameStage = NotStarted | PostBlinds | HandUnderway Street
 
 newtype PlayerPosition = PlayerPosition Int
 
-data BettingAction
-  = AwaitingPlayerAction
-  | NotAwaitingPlayerAction
-  | EveryoneFolded
-  | EveryoneAllIn
-  deriving (Eq, Show, Ord, Read, Generic, ToJSON, FromJSON)
+data HandStatus
+   = AwaitingPlayerAction
+   | NotAwaitingPlayerAction
+   | EveryoneFolded
+   | EveryoneAllIn
+   deriving (Eq, Show, Ord, Read, Generic, ToJSON, FromJSON)
 
 data Street
-  = PreDeal
-  | PreFlop
-  | Flop
-  | Turn
-  | River
-  | Showdown
-  deriving (Eq, Ord, Show, Read, Bounded, Enum, Generic, ToJSON, FromJSON)
+   = PreDeal
+   | PreFlop
+   | Flop
+   | Turn
+   | River
+   | Showdown
+   deriving (Eq, Ord, Show, Read, Bounded, Enum, Generic, ToJSON, FromJSON)
 
 -- Highest ranking hand for a given PlayerInfo that is in the game
 -- during the Showdown stage of the game (last stage)
 newtype PlayerShowdownHand
-  = PlayerShowdownHand [Card]
-  deriving (Show, Eq, Read, Ord, Generic, ToJSON, FromJSON)
+   = PlayerShowdownHand [Card]
+   deriving (Show, Eq, Read, Ord, Generic, ToJSON, FromJSON)
 
 unPlayerShowdownHand :: PlayerShowdownHand -> [Card]
 unPlayerShowdownHand (PlayerShowdownHand cards) = cards
@@ -222,14 +225,14 @@ unPlayerShowdownHand (PlayerShowdownHand cards) = cards
 -- Whereas in a MultiPlayer showdown all players must show their cards
 -- as hand rankings are needed to ascertain the winner of the pot.
 data Winners
-  = MultiPlayerShowdown [((HandRank, PlayerShowdownHand), PlayerName)]
-  | SinglePlayerShowdown PlayerName -- occurs when everyone folds to one player
-  | NoWinners -- todo - remove this and wrap whole type in a Maybe
-  deriving (Show, Eq, Read, Ord, Generic, ToJSON, FromJSON)
+ = MultiPlayerShowdown [((HandRank, PlayerShowdownHand), PlayerName)]
+ | SinglePlayerShowdown PlayerName -- occurs when everyone folds to one player
+ | NoWinners -- todo - remove this and wrap whole type in a Maybe
+ deriving (Show, Eq, Read, Ord, Generic, ToJSON, FromJSON)
 
 newtype Deck
-  = Deck [Card]
-  deriving (Show, Eq, Read, Ord, Generic, ToJSON, FromJSON)
+ = Deck [Card]
+ deriving (Show, Eq, Read, Ord, Generic, ToJSON, FromJSON)
 
 unDeck :: Deck -> [Card]
 unDeck (Deck cards) = cards
@@ -244,9 +247,9 @@ unDeck (Deck cards) = cards
 -- we model the poker game as a products of mealy machines.
 -- The table is a mealy machine and N players are N mealy machines.
 -- So we have N machines for checking all players,
---  a few extra machines for checking the global rules
---  player is a mealy machine and game is a mealy machine?
---  like, this might be a good way to fight the complexity of building the whole state checker yourself
+-- a few extra machines for checking the global rules
+-- player is a mealy machine and game is a mealy machine?
+-- like, this might be a good way to fight the complexity of building the whole state checker yourself
 --
 -- coding it ain't much hard either, but with having the composition abstracted out you kinda ensure that you don't forget about something when composing it manually
 --
@@ -263,77 +266,27 @@ unDeck (Deck cards) = cards
 -- A Machine is constructed from a Plan
 
 data AnErr = Err1
-   deriving (Eq, Show, Read, Ord, Generic, ToJSON, FromJSON)
+ deriving (Eq, Show, Read, Ord, Generic, ToJSON, FromJSON)
 
 
 
-data CanActPlayer = CanActPlayer
-  { _playerName :: Text,
-   _hasActed :: HasActedThisStreet,
-   _pockets :: Maybe PocketCards,
-    _chips :: Chips,
-   _currBet :: Chips,
-    _committed :: CommittedChips,
-    _possibleActions :: [Action]
-  }   deriving (Eq, Show, Read, Ord, Generic, ToJSON, FromJSON)
+--data PreHandPlayer =
+-- --SatOutP SatOutPlayer
+-- PreHandPlayer
+-- | PreHandPlayer
+-- | PreHandPlayer
+-- deriving (Eq, Show, Read, Ord, Generic, ToJSON, FromJSON)
 
-data HasActedThisStreet = NotActedThisTurn | ActedThisTurn BetOrChecked 
-   deriving (Eq, Show, Read, Ord, Generic, ToJSON, FromJSON)
-
-
-
-
---data PlayerInHandStatus
---  = NotActedYet
---  | CanAct BetOrChecked
---  | Folded
---  | AllIn
---  deriving (Eq, Show, Read, Ord, Generic, ToJSON, FromJSON)
-
-data HasBet = HasCalled | HasBet Chips | HasRaised Chips
-  deriving (Eq, Show, Read, Ord, Generic, ToJSON, FromJSON)
-
---betSize :: HasBet -> Int
---betSize = \case
---  HasCalled -> n
---  HasBet n -> n
---  HasRaised n -> n
-
-data BetOrChecked = MadeBet HasBet | Checked
-  deriving (Eq, Show, Read, Ord, Generic, ToJSON, FromJSON)
-
-
-data Player =
-    SatOutP SatOutPlayer
-  | PreHandP PreHandPlayer
-  | InHandP InHandPlayer
-  deriving (Eq, Show, Read, Ord, Generic, ToJSON, FromJSON)
-
-data InHandPlayer = 
-     CanActP CanActPlayer
-   | CannotActP CannotActPlayer 
-  deriving (Eq, Show, Read, Ord, Generic, ToJSON, FromJSON)
-
-data CannotActPlayer = 
-     AllInP AllInPlayer
-   | FoldedP FoldedPlayer 
-  deriving (Eq, Show, Read, Ord, Generic, ToJSON, FromJSON)
-
-data PreHandPlayer =
-   --SatOutP SatOutPlayer
-   NeedsBlindP BlindRequiredPlayer
-  | NoBlindNeededP NoBlindRequiredPlayer
-  | HasPostedBlindP HasPostedBlindPlayer
-   deriving (Eq, Show, Read, Ord, Generic, ToJSON, FromJSON)
-
+{-
 
 initInHandPlayer :: PlayerName -> Chips -> Mealy Action Player
 initInHandPlayer name chips =
-  unfoldMealy
-    (\player action ->
-        (nextInHandPlayer player action,  next))
-    newPlayer name chips
-  
+ unfoldMealy
+ (\player action ->
+ (nextInHandPlayer player action, next))
+ newPlayer name chips
+ 
+ 
 
 nextInHandPlayer :: InHandPlayer -> Action -> InHandPlayer
 nextInHandPlayer (CanActP (CanActPlayer {..})) _ = undefined
@@ -342,9 +295,9 @@ nextInHandPlayer s _ = s
 
 --each seat at table is a mealy machine
 basically need a Player Monad which is essentially state monad (MealyT)
-and then _playerState =  
-    InHand (CanAct | CannotAct (Folded | AllIn))
-    | PreHand (BlindRequired NoBlindRequired HasPostedBlind )
+and then _playerState = 
+ InHand (CanAct | CannotAct (Folded | AllIn))
+ | PreHand (BlindRequired NoBlindRequired HasPostedBlind )
 So yes scrap all the types you made and just encode them in a field
 called playerState
 
@@ -352,17 +305,17 @@ player is a state monad with things like bet fold newStreet newHand
 
 bet :: InHandPlayer -> Chips -> (Player, MealyT (Player) Action PlayerState)
 bet (CanActP CanActPlayer{..}) bet'
-  
-  | _chips - bet' == 0 = 
-    (InHandP $ CannotActP $ AllInP $ AllInPlayer{..}, 
-    const $ Mealy $ InHandP $ CannotActP $ AllInP $ AllInPlayer{..})
-  
-  | otherwise = 
-    (InHandP $ CanActP CanActPlayer{_chips = _chips - bet', ..}, canAct)
-    
+ 
+ | _chips - bet' == 0 = 
+ (InHandP $ CannotActP $ AllInP $ AllInPlayer{..}, 
+ const $ Mealy $ InHandP $ CannotActP $ AllInP $ AllInPlayer{..})
+ 
+ | otherwise = 
+ (InHandP $ CanActP CanActPlayer{_chips = _chips - bet', ..}, canAct)
+ 
 canAct :: Action -> ()
 canAct = \case
-  Fold -> (InHandP $ FoldedP $ FoldedPlayer {..}, Mealy folded)
+ Fold -> (InHandP $ FoldedP $ FoldedPlayer {..}, Mealy folded)
 
 folded :: Mealy Action PlayerState 
 folded = (Mealy newHand
@@ -378,7 +331,7 @@ placeBet chips = (p, Mealy turn)
 check :: (GameStage, Mealy Action InHandPlayer)
 check = (Turn' undefined, Mealy river)
 
-{-
+
 
 InHand $ canAct 
 InHand $ CannotAct Folded | AllIn
@@ -396,124 +349,121 @@ SatOut
 --m2TransitionFmB :: FoldAction -> (M1State, Mealy Char M1State)
 --m2TransitionFmB _ = (M1A,Mealy m2TransitionFmA)
 
---data CannotAct = AlreadyAllIn | HasFolded    
+--data CannotAct = AlreadyAllIn | HasFolded 
  -- deriving (Eq, Show, Read, Ord, Generic, ToJSON, FromJSON)
-
-data AllInPlayer = AllInPlayer
- { _playerName :: Text,
-   _pockets :: Maybe PocketCards,
-   _currBet :: Chips,
-    _committed :: CommittedChips
-  }   deriving (Eq, Show, Read, Ord, Generic, ToJSON, FromJSON)
-
-data FoldedPlayer = FoldedPlayer
- { _playerName :: Text,
-   _pockets :: Maybe PocketCards,
-   _chips :: Chips,
-   _currBet :: Chips,
-   _committed :: CommittedChips
-  }   deriving (Eq, Show, Read, Ord, Generic, ToJSON, FromJSON)
 
 
 hidePockets :: Player -> Player
-hidePockets  (InHandP (CanActP CanActPlayer{..})) =
-  (InHandP (CanActP CanActPlayer {_pockets = Nothing, ..}))
-hidePockets  (InHandP (CannotActP (AllInP AllInPlayer{..}))) =
-     (InHandP (CannotActP (AllInP AllInPlayer{_pockets = Nothing, ..})))
-hidePockets  (InHandP (CannotActP (FoldedP FoldedPlayer{..}))) =
-     ( InHandP (CannotActP (FoldedP FoldedPlayer{_pockets = Nothing, ..})))
-hidePockets  p@(PreHandP _) = p
-hidePockets   p@(SatOutP _) = p
+hidePockets (InHandP (InHandPlayer{..})) =
+ InHandP $ InHandPlayer{_pockets = Nothing, ..}
+hidePockets p@(PreHandP _) = p
+hidePockets p@(SatOutP _) = p
 
 
 
-toNeedsBlindPlayer :: Blind -> Player -> BlindRequiredPlayer
-toNeedsBlindPlayer _blindRequired (InHandP (CanActP CanActPlayer{..})) =
-    BlindRequiredPlayer{..}
-toNeedsBlindPlayer _blindRequired (InHandP (CannotActP (AllInP AllInPlayer{..}))) =
-    BlindRequiredPlayer{_chips = Chips 0, ..}
-toNeedsBlindPlayer _blindRequired ( InHandP (CannotActP (FoldedP FoldedPlayer{..}))) =
-    BlindRequiredPlayer{..}
 
-toNeedsBlindPlayer _blindRequired (PreHandP (HasPostedBlindP HasPostedBlindPlayer{..})) =
-    BlindRequiredPlayer{..}
-toNeedsBlindPlayer _blindRequired (PreHandP (NoBlindNeededP NoBlindRequiredPlayer{..})) =
-    BlindRequiredPlayer{..}
-toNeedsBlindPlayer _blindRequired  (SatOutP (SatOutPlayer{..})) =
-    BlindRequiredPlayer{..}
-toNeedsBlindPlayer _blindRequired (PreHandP (NeedsBlindP p)) = p
-
-
-toNoBlindNeededPlayer :: Player -> NoBlindRequiredPlayer
-toNoBlindNeededPlayer  (InHandP (CanActP CanActPlayer{..})) =
-    NoBlindRequiredPlayer{..}
-toNoBlindNeededPlayer  (InHandP (CannotActP (AllInP AllInPlayer{..})) )=
-    NoBlindRequiredPlayer{_chips = Chips 0, ..}
-toNoBlindNeededPlayer  ( InHandP (CannotActP (FoldedP FoldedPlayer{..})) )=
-    NoBlindRequiredPlayer{..}
-
-toNoBlindNeededPlayer  (PreHandP (HasPostedBlindP HasPostedBlindPlayer{..})) =
-    NoBlindRequiredPlayer{..}
-toNoBlindNeededPlayer  (PreHandP (NoBlindNeededP p)) =
-    p
-toNoBlindNeededPlayer  (SatOutP (SatOutPlayer{..})) =
-    NoBlindRequiredPlayer{..}
-toNoBlindNeededPlayer  (PreHandP (NeedsBlindP p)) = NoBlindRequiredPlayer{..}
+-- FoldedPlayer{..}
+--foldPlayer (InHandP (CannotActP (AllInP AllInPlayer{..}))) =
+-- FoldedPlayer{..}
+--foldPlayer ( InHandP (CannotActP (FoldedP p))) = p
+--
+--foldPlayer (PreHandP ( PreHandPlayer{..})) =
+-- FoldedPlayer{..}
+--foldPlayer (PreHandP ( p)) = FoldedPlayer{..}
+--foldPlayer (SatOutP (SatOutPlayer{..})) =
+-- FoldedPlayer{..}
 
 
 sitPlayerOut :: Player -> SatOutPlayer
-sitPlayerOut  (InHandP (CanActP CanActPlayer{..})) =
-    SatOutPlayer{..}
-sitPlayerOut  (InHandP (CannotActP (AllInP AllInPlayer{..})) )=
-    SatOutPlayer{..}
-sitPlayerOut  ( InHandP (CannotActP (FoldedP FoldedPlayer{..}))) =
-    SatOutPlayer{..}
-
-sitPlayerOut  (PreHandP (HasPostedBlindP HasPostedBlindPlayer{..})) =
-    SatOutPlayer{..}
-sitPlayerOut  (PreHandP (NoBlindNeededP NoBlindRequiredPlayer{..})) =
-    SatOutPlayer{..}
-sitPlayerOut  (SatOutP p) = p
-sitPlayerOut  (PreHandP (NeedsBlindP p)) = SatOutPlayer{..}
-
-foldPlayer :: Player -> FoldedPlayer
-foldPlayer  (InHandP (CanActP CanActPlayer{..})) =
-    FoldedPlayer{..}
-foldPlayer  (InHandP (CannotActP (AllInP AllInPlayer{..}))) =
-    FoldedPlayer{..}
-foldPlayer  ( InHandP (CannotActP (FoldedP p))) = p
-
-foldPlayer  (PreHandP (HasPostedBlindP HasPostedBlindPlayer{..})) =
-    FoldedPlayer{..}
-foldPlayer  (PreHandP (NoBlindNeededP p)) =        FoldedPlayer{..}
-foldPlayer  (SatOutP (SatOutPlayer{..})) =
-    FoldedPlayer{..}
-foldPlayer  (PreHandP (NeedsBlindP p)) = FoldedPlayer{..}
-
-
+sitPlayerOut (SatOutP p) = p
+sitPlayerOut (InHandP InHandPlayer{..})= SatOutPlayer{..}
+sitPlayerOut (PreHandP PreHandPlayer{..}) = SatOutPlayer{..}
 
 data SatOutPlayer = SatOutPlayer {
-  _playerName :: Text,
-  _chips :: Chips
-}  deriving (Eq, Show, Read, Ord, Generic, ToJSON, FromJSON)
+    _playerName :: Text,
+    _chips :: Chips
+   } deriving (Eq, Show, Read, Ord, Generic, ToJSON, FromJSON)
 
-data HasPostedBlindPlayer = HasPostedBlindPlayer {
-  _playerName :: Text,
-  _chips :: Chips,
-  _committed ::CommittedChips,
-  _hasPostedBlind :: Blind
-}  deriving (Eq, Show, Read, Ord, Generic, ToJSON, FromJSON)
+data BlindStatus = BlindRequired Blind | NoBlindRequired
+   deriving (Eq, Show, Read, Ord, Generic, ToJSON, FromJSON)
 
-data BlindRequiredPlayer = BlindRequiredPlayer {
-  _playerName :: Text,
-  _chips :: Chips,
-  _blindRequired :: Blind
-}  deriving (Eq, Show, Read, Ord, Generic, ToJSON, FromJSON)
+toBlindStatus :: Maybe Blind -> BlindStatus
+toBlindStatus (Just b) = BlindRequired b 
+toBlindStatus Nothing = NoBlindRequired
 
-data NoBlindRequiredPlayer = NoBlindRequiredPlayer {
-  _playerName :: Text,
-  _chips :: Chips
-}  deriving (Eq, Show, Read, Ord, Generic, ToJSON, FromJSON)
+toPreHandPlayer :: Player -> Maybe Blind -> PreHandPlayer
+toPreHandPlayer (PreHandP p) _ = p
+toPreHandPlayer (InHandP InHandPlayer{..}) mbBlind =
+ PreHandPlayer{_blindStatus = toBlindStatus mbBlind, ..}
+toPreHandPlayer (SatOutP SatOutPlayer{..}) mbBlind =
+ PreHandPlayer{_blindStatus = toBlindStatus mbBlind, ..}
+
+data PreHandPlayer = PreHandPlayer {
+    _playerName :: Text,
+    _chips :: Chips,
+    _committed ::CommittedChips,
+    _blindStatus :: BlindStatus
+   } deriving (Eq, Show, Read, Ord, Generic, ToJSON, FromJSON)
+
+
+--each seat at table is a mealy machine
+--basically need a Player Monad which is essentially state monad (MealyT)
+--and then 
+ 
+data AllInOrFolded = IsAllIn | HasFolded
+  deriving (Eq, Show, Read, Ord, Generic, ToJSON, FromJSON)
+
+
+
+data PlayerStatus = CanAct | CannotAct AllInOrFolded
+  deriving (Eq, Show, Read, Ord, Generic, ToJSON, FromJSON)
+
+data InHandPlayer = InHandPlayer
+   { _playerName :: Text,
+   _hasActed :: HasActedThisStreet,
+   _pockets :: Maybe PocketCards,
+   _chips :: Chips,
+   _currBet :: Chips,
+   _status :: PlayerStatus,
+   _committed :: CommittedChips,
+   _possibleActions :: [Action]
+   } deriving (Eq, Show, Read, Ord, Generic, ToJSON, FromJSON)
+
+data HasActedThisStreet = NotActedThisTurn | ActedThisTurn BetOrChecked 
+   deriving (Eq, Show, Read, Ord, Generic, ToJSON, FromJSON)
+
+
+--data PlayerInHandStatus
+-- = NotActedYet
+-- | CanAct BetOrChecked
+-- | Folded
+-- | AllIn
+-- deriving (Eq, Show, Read, Ord, Generic, ToJSON, FromJSON)
+
+data HasBet = HasCalled | HasBet Chips | HasRaised Chips
+   deriving (Eq, Show, Read, Ord, Generic, ToJSON, FromJSON)
+
+--betSize :: HasBet -> Int
+--betSize = \case
+-- HasCalled -> n
+-- HasBet n -> n
+-- HasRaised n -> n
+
+data BetOrChecked = MadeBet HasBet | Checked
+   deriving (Eq, Show, Read, Ord, Generic, ToJSON, FromJSON)
+
+
+data Player =
+    SatOutP SatOutPlayer
+    | PreHandP PreHandPlayer
+    | InHandP InHandPlayer
+    deriving (Eq, Show, Read, Ord, Generic, ToJSON, FromJSON)
+
+--data InHandPlayer = 
+-- CanActP CanActPlayer
+-- | CannotActP CannotActPlayer 
+-- deriving (Eq, Show, Read, Ord, Generic, ToJSON, FromJSON)
+
 
 
 
@@ -530,11 +480,11 @@ data NoBlindRequiredPlayer = NoBlindRequiredPlayer {
 -- | Plan to build a PlayerInfo Machine
 -- validateMovePlan :: Plan (Either AnErr) PlayerMove (Either AnErr ())
 -- validateMovePlan = do
---  -- awaits ::       k i -> Plan k     o i
---  -- check is valisd
---  a <- awaits $ Right Fold
---  yield
---  return 1
+-- -- awaits :: k i -> Plan k o i
+-- -- check is valisd
+-- a <- awaits $ Right Fold
+-- yield
+-- return 1
 
 -- player is a mealyT or mealy
 
@@ -542,7 +492,7 @@ data NoBlindRequiredPlayer = NoBlindRequiredPlayer {
 
 -- validatePreGameMove (sitIn vs sitout etc is a pure machine ) plan
 
--- validateBlinds move  (canpostblind is a pure machine ) plan
+-- validateBlinds move (canpostblind is a pure machine ) plan
 
 
 
@@ -557,74 +507,20 @@ newtype RiverBoard = RiverBoard (Card, Card, Card, Card, Card)
 -- Moore machine since next state doesn't depend on input.
 -- Note, you don't have a game until both small and big blinds are posted.
 data GameStage
-  = PreFlop'
-  | Flop' FlopBoard
-  | Turn' TurnBoard
-  | River' RiverBoard
-  | Showdown' Winners
+   = PreFlop'
+   | Flop' FlopBoard
+   | Turn' TurnBoard
+   | River' RiverBoard
+   | Showdown' Winners
 
-preFlop :: Mealy BettingStatus GameStage
-preFlop = Mealy flop
 
--- board is a moore
-flop :: BettingStatus -> (GameStage, Mealy BettingStatus GameStage)
-flop _ = (Flop' undefined, Mealy turn)
-
--- | Transition function from state M1A
-turn :: BettingStatus -> (GameStage, Mealy BettingStatus GameStage)
-turn _ = (Turn' undefined, Mealy river)
-
--- | Transition function from state M1B
-river :: BettingStatus -> (GameStage, Mealy BettingStatus GameStage)
-river _ = (River' undefined, Mealy showdown)
-
-showdown :: BettingStatus -> (GameStage, Mealy BettingStatus GameStage)
-showdown _ = (Showdown' undefined, preFlop)
-
--- Turn the Mealy state machine into a process
-gameStageProcess :: Monad m => MachineT m (Is BettingStatus) GameStage
-gameStageProcess = auto preFlop
-
--------------------------  Betting Status ---------------------------------
--- this mealy machine is responsible for the rule denoting whether there
--- is another player to act or not.
 data BettingStatus
-  = AwaitingAction' PlayerName
-  | NotAwaitingPlayerAction'
-  | EveryoneFolded'
-  | EveryoneAllIn'
-  deriving (Eq, Show, Ord, Read, Generic, ToJSON, FromJSON)
-
-initBettingStatus :: PlayerName -> Mealy Action BettingStatus
-initBettingStatus pName =
-  unfoldMealy
-    ( \status action ->
-       (status, nextBettingStatus status action)
-    )
-    fstPlayerToAct
-  where
-    fstPlayerToAct = AwaitingAction' pName
-
-nextBettingStatus :: BettingStatus -> Action -> BettingStatus
-nextBettingStatus (AwaitingAction' _) _ = undefined
-nextBettingStatus s _ = s
-
--- always the starting point for betting status. Betting
--- status gets reset to this starting stateT
--- every time the game stage is progressed.
---awaitingPlayerAction :: Mealy Action BettingStatus
---awaitingPlayerAction =
---  Mealy nextBettingStatus AwaitingPlayerAction'
-
------------------------- PlayerInfo -------------------------------------
--- current position toAct is a mealy
-
--- timeout is a ?
-
---playerMachine :: (Monad m) => MachineT m (Either AnErr) PlayerInfo
---playerMachine = construct helloPlan
-
-----------------------------------------------------------------------
+   = AwaitingAction' PlayerName
+   | NotAwaitingPlayerAction'
+   | EveryoneFolded'
+   | EveryoneAllIn'
+   deriving (Eq, Show, Ord, Read, Generic, ToJSON, FromJSON)
+-------
 
 -- If you can check, that is you aren't facing an amount you have to call,
 -- then when you put in chips it is called a bet. If you have to put in
@@ -637,79 +533,101 @@ nextBettingStatus s _ = s
 -- this scenario mucking or showing refers to the decision to
 -- show ones hand or not to the table after everyone else has folded.
 data Action'
-  = SitDown' Player -- doesnt progress the game
-  | LeaveSeat'' -- doesnt progress the game
-  | PostBlind' Blind
-  | Fold'
-  | Call'
-  | Raise' Chips
-  | Check'
-  | Bet' Chips
-  | ShowHand'
-  | MuckHand'
-  | SitOut'
-  | SitIn'
-  | Timeout' -- REMOVE not an action
-  deriving (Show, Ord, Eq, Read, Generic, ToJSON, FromJSON)
+   = SitDown' Player -- doesnt progress the game
+   | LeaveSeat'' -- doesnt progress the game
+   | PostBlind' Blind
+   | Fold'
+   | Call'
+   | Raise' Chips
+   | Check'
+   | Bet' Chips
+   | ShowHand'
+   | MuckHand'
+   | SitOut'
+   | SitIn'
+   | Timeout' -- REMOVE not an action
+   deriving (Show, Ord, Eq, Read, Generic, ToJSON, FromJSON)
 
 ---------------------------------------------------------------
 
-data Game = Game
-  { _players :: [Player],
-    _minBuyInChips :: Chips,
-    _maxBuyInChips :: Chips,
-    _maxPlayers :: Int,
-    _board :: [Card],
-    _winners :: Winners,
-    _waitlist :: [PlayerName],
-    _deck :: Deck,
-    _smallBlind :: Int,
-    _bigBlind :: Int,
-    _street :: Street,
-    _pot :: Chips,
-    _maxBet :: Chips,
-    _dealer :: Int,
-    _currentPosToAct :: Maybe Int -- If Nothing and not PreDeal stage of game then this signifies that
-    -- no  player can act (i.e everyone all in) or
-    -- if during PreDeal (blinds stage) any player can act first in order to get the game started
-    -- TODO refactor this logic into ADT such as  Nobody | Anyone | Someone PlayerName PlayerPos
-  }
-  deriving (Eq, Read, Ord, Generic, ToJSON, FromJSON)
+data GameSettings = GameSettings { 
+   _minBuyInChips :: Chips,
+   _maxBuyInChips :: Chips,
+   _maxPlayers :: Int,
+   _smallBlind :: Int,
+   _bigBlind :: Int
+  } deriving (Eq, Read, Show,Ord, Generic, ToJSON, FromJSON)
 
-instance Show Game where
-  show Game {..} =
-    "\n dealer: "
-      <> show _dealer
-      <> "\n _currentPosToAct: "
-      <> show _currentPosToAct
-      <> "\n _smallBlind: "
-      <> show _smallBlind
-      <> "\n _big_blind: "
-      <> show _bigBlind
-      <> "\n _minBuyin: "
-      <> show _minBuyInChips
-      <> "\n _maxBuyin: "
-      <> show _maxBuyInChips
-      <> "\n _pot: "
-      <> show _pot
-      <> "\n _maxBet: "
-      <> show _maxBet
-      <> "\n _street: "
-      <> show _street
-      <> "\n _winners: "
-      <> show _winners
-      <> "\n _board: "
-      <> show _board
-      <> "\n _players: "
-      <> show _players
+data GameNotRunning = GameNotRunning {
+    _satOutPlayers :: [SatOutPlayer],
+    _gameSettings :: GameSettings,
+    _waitlist :: [PlayerName]
+  } deriving (Eq, Read,Show, Ord, Generic, ToJSON, FromJSON)
 
+data BlindsInProgress = BlindsInProgress {
+  _players :: [PreHandPlayer],
+  _satOutPlayers :: [SatOutPlayer],
+  _gameSettings :: GameSettings,
+  _waitlist :: [PlayerName],
+  _dealer :: Int,
+  _currentPosToAct :: Int 
+  } deriving (Eq, Read,Show, Ord, Generic, ToJSON, FromJSON)
+
+data HandInProgress = HandInProgress
+ { _players :: [InHandPlayer],
+   _satOutPlayers :: [SatOutPlayer],
+   _gameSettings :: GameSettings,
+   _board :: [Card],
+   _waitlist :: [PlayerName],
+   _deck :: Deck,
+   _street :: Street,
+   _pot :: Chips,
+   _maxBet :: Chips,
+   _dealer :: Int,
+   _currentPosToAct :: Int -- If Nothing and not PreDeal stage of game then this signifies that
+   -- no player can act (i.e everyone all in) or
+   -- if during PreDeal (blinds stage) any player can act first in order to get the game started
+   -- TODO refactor this logic into ADT such as Nobody | Anyone | Someone PlayerName PlayerPos
+   }
+   deriving (Eq, Read, Ord, Generic, ToJSON, FromJSON)
+
+data HandFinished = HandFinished {
+   _players :: [InHandPlayer],
+   _satOutPlayers :: [SatOutPlayer],
+   _winners :: Winners,
+   _pot :: Chips,
+   _dealer :: Int,
+   _gameSettings :: GameSettings,
+   _board :: [Card]
+  } deriving (Eq, Show, Read, Ord, Generic, ToJSON, FromJSON)
+
+
+instance Show HandInProgress where
+   show HandInProgress {..} =
+        "\n dealer: "
+        <> show _dealer
+           <> "\n _satOutPlayers: "
+        <> show _satOutPlayers
+        <> "\n _currentPosToAct: "
+        <> show _currentPosToAct
+        <> "\n _pot: "
+        <> show _pot
+        <> "\n _maxBet: "
+        <> show _maxBet
+        <> "\n _street: "
+        <> show _street
+        <> "\n _board: "
+        <> show _board
+        <> "\n _players: "
+        <> show _players
+  
 type PlayerName = Text
 
 data PlayerAction = PlayerAction
-  { name :: PlayerName,
+   { name :: PlayerName,
     action :: Action
-  }
-  deriving (Show, Eq, Read, Generic, ToJSON, FromJSON)
+   }
+   deriving (Show, Eq, Read, Generic, ToJSON, FromJSON)
 
 -- If you can check, that is you aren't facing an amount you have to call,
 -- then when you put in chips it is called a bet. If you have to put in
@@ -722,94 +640,86 @@ data PlayerAction = PlayerAction
 -- this scenario mucking or showing refers to the decision to
 -- show ones hand or not to the table after everyone else has folded.
 data Action
-  = SitDown Player -- doesnt progress the game
-  | LeaveSeat' -- doesnt progress the game
-  | PostBlind Blind
-  | Fold
-  | Call
-  | Raise Chips
-  | Check
-  | Bet Chips
-  | ShowHand
-  | MuckHand
-  | SitOut
-  | SitIn
-  | Timeout
-  deriving (Show, Ord, Eq, Read, Generic, ToJSON, FromJSON)
+   = SitDown Player -- doesnt progress the game
+   | LeaveSeat' -- doesnt progress the game
+   | PostBlind Blind
+   | Fold
+   | Call
+   | Raise Chips
+   | Check
+   | Bet Chips
+   | ShowHand
+   | MuckHand
+   | SitOut
+   | SitIn
+   | Timeout
+   deriving (Show, Ord, Eq, Read, Generic, ToJSON, FromJSON)
 
 data GameErr
-  = NotEnoughChips PlayerName
-  | OverMaxChipsBuyIn PlayerName
-  | PlayerNotAtTable PlayerName
-  | AlreadySatAtTable PlayerName
-  | NotAtTable PlayerName
-  | CannotSitAtFullTable PlayerName
-  | AlreadyOnWaitlist PlayerName
-  | InvalidMove
-      PlayerName
-      InvalidMoveErr
-  deriving (Show, Eq, Read, Ord, Generic, ToJSON, FromJSON)
-
+   = NotEnoughChips PlayerName
+   | OverMaxChipsBuyIn PlayerName
+   | PlayerNotAtTable PlayerName
+   | AlreadySatAtTable PlayerName
+   | NotAtTable PlayerName
+   | CannotSitAtFullTable PlayerName
+   | AlreadyOnWaitlist PlayerName
+   | InvalidMove
+   PlayerName
+   InvalidMoveErr
+   deriving (Show, Eq, Read, Ord, Generic, ToJSON, FromJSON)
+  
 -- ToDO -- ONLY ONE ERR MSG FOR EACH POSSIBLE ACTION
 --
 -- additional text field for more detailed info
 --
 -- i.e cannotBet "Cannot Bet Should Raise Instead - bets can only be made if there have been zero bets this street"
 data InvalidMoveErr
-  = BlindNotRequired
-  | BlindRequiredErr Blind
-  | NoBlindRequiredErr
-  | BlindAlreadyPosted Blind
-  | OutOfTurn CurrentPlayerToActErr -- _currentPosToAct is Just but not the player's index
-  | NoPlayerCanAct -- _currentPosToAct is Nothing
-  | CannotPostBlindOutsidePreDeal
-  | CannotPostNoBlind -- if player tries to apply postBlind with a value of NoBlind
-  | CannotPostBlind Text
-  | InvalidActionForStreet
-  | BetLessThanBigBlind
-  | NotEnoughChipsForAction
-  | CannotBetShouldRaiseInstead Text
-  | PlayerToActNotAtTable
-  | CannotRaiseShouldBetInstead
-  | RaiseAmountBelowMinRaise Int
-  | CannotCheckShouldCallRaiseOrFold
-  | CannotCallZeroAmountCheckOrBetInstead
-  | CannotShowHandOrMuckHand Text
-  | CannotLeaveSeatOutsidePreDeal
-  | CannotSitDownOutsidePreDeal
-  | CannotSitInOutsidePreDeal
-  | AlreadySatIn
-  | AlreadySatOut -- cannot sitout when already satout
-  | CannotSitOutOutsidePreDeal
-  deriving (Show, Eq, Read, Ord, Generic, ToJSON, FromJSON)
+   = BlindNotRequired
+   | BlindRequiredErr Blind
+   | NoBlindRequiredErr
+   | BlindAlreadyPosted Blind
+   | OutOfTurn CurrentPlayerToActErr -- _currentPosToAct is Just but not the player's index
+   | NoPlayerCanAct -- _currentPosToAct is Nothing
+   | CannotPostBlindOutsidePreDeal
+   | CannotPostNoBlind -- if player tries to apply postBlind with a value of NoBlind
+   | CannotPostBlind Text
+   | InvalidActionForStreet
+   | BetLessThanBigBlind
+   | NotEnoughChipsForAction
+   | CannotBetShouldRaiseInstead Text
+   | PlayerToActNotAtTable
+   | CannotRaiseShouldBetInstead
+   | RaiseAmountBelowMinRaise Int
+   | CannotCheckShouldCallRaiseOrFold
+   | CannotCallZeroAmountCheckOrBetInstead
+   | CannotShowHandOrMuckHand Text
+   | CannotLeaveSeatOutsidePreDeal
+   | CannotSitDownOutsidePreDeal
+   | CannotSitInOutsidePreDeal
+   | AlreadySatIn
+   | AlreadySatOut -- cannot sitout when already satout
+   | CannotSitOutOutsidePreDeal
+   deriving (Show, Eq, Read, Ord, Generic, ToJSON, FromJSON)
 
 newtype CurrentPlayerToActErr
-  = CurrentPlayerToActErr PlayerName
-  deriving (Show, Eq, Read, Ord, Generic, ToJSON, FromJSON)
+ = CurrentPlayerToActErr PlayerName
+ deriving (Show, Eq, Read, Ord, Generic, ToJSON, FromJSON)
 
-makeFieldsNoPrefix ''FoldedPlayer
-makeFieldsNoPrefix ''AllInPlayer
-makeFieldsNoPrefix ''CanActPlayer
 
---makeLenses ''FoldedPlayer
---makeLenses ''CanActPlayer
---makeLenses ''AllInPlayer
 
 makeFieldsNoPrefix ''SatOutPlayer
-makeFieldsNoPrefix ''HasPostedBlindPlayer
-makeFieldsNoPrefix ''BlindRequiredPlayer
-makeFieldsNoPrefix ''NoBlindRequiredPlayer
+makeFieldsNoPrefix ''PreHandPlayer
+makeFieldsNoPrefix ''InHandPlayer
 
---makeLenses ''SatOutPlayer
---makeLenses ''HasPostedBlindPlayer
---makeLenses ''BlindRequiredPlayer
---makeLenses ''NoBlindRequiredPlayer
+makeFieldsNoPrefix ''GameNotRunning
+makeFieldsNoPrefix ''BlindsInProgress
+makeFieldsNoPrefix ''HandInProgress
+makeFieldsNoPrefix ''HandFinished
+
 
 makeLenses ''Player
-makeLenses ''InHandPlayer
-makeLenses ''PreHandPlayer
+makeLenses ''GameSettings
 makeLenses ''PlayerAction
-makeLenses ''Game
 makeLenses ''Winners
 
 -- Due to the GHC Stage Restriction, the call to the Template Haskell function derivePersistField must be
