@@ -11,7 +11,7 @@ import qualified Hedgehog.Gen as Gen
 import qualified Hedgehog.Range as Range
 import Poker.Game.Game (haveAllPlayersActed)
 import Poker.Game.Utils (getActivePlayers)
-import Poker.Generators (allPStates, genGame)
+import Poker.GeneratorsSpec (allPStates, genGame)
 import Poker.Poker (canProgressGame)
 import Poker.Types
 import Test.Hspec (SpecWith, describe, it)

@@ -2,6 +2,9 @@
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE DeriveAnyClass #-}
+{-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE DeriveGeneric #-}
 
 module Poker.Game.Game where
 
@@ -10,6 +13,8 @@ import Data.List (find, mapAccumR)
 import qualified Data.List.Safe as Safe
 import Data.Maybe (fromJust, isNothing)
 import Data.Text (Text)
+import GHC.Generics (Generic)
+import Data.Aeson (FromJSON, ToJSON)
 import Poker.Game.Blinds
   ( blindRequiredByPlayer,
     haveRequiredBlindsBeenPosted,
@@ -419,6 +424,26 @@ nextIPlayerToAct Game {..} = nextIPlayer
          in find
               (\(_, Player {..}) -> _playerState == In && _chips > 0)
               nextIPlayerToAct
+
+data HandStatus = 
+    EveryoneFolded
+  | EveryoneAllIn
+  | CurrentPosToAct Int
+  | StreetFinished
+  deriving (Show, Eq, Read, Ord, Generic, ToJSON, FromJSON)
+
+canPlayerAct :: HandStatus -> Bool
+canPlayerAct (CurrentPosToAct _) = True
+canPlayerAct _ = False
+
+handStatus :: Game -> HandStatus
+handStatus g@Game {..}
+  | everyoneAllIn g = EveryoneAllIn
+  | length (getActivePlayers _players) == 1 = EveryoneFolded
+  | otherwise = 
+     case firstPosToAct g of
+       Just pos -> CurrentPosToAct pos
+       Nothing -> StreetFinished
 
 -- gets the position of the next player which needs to act
 -- if currentPosToAct is already a Nothing then this means we are starting a new hand

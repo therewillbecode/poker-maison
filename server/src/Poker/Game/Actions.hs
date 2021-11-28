@@ -111,7 +111,7 @@ call pName game@Game {..} =
       . (currentPosToAct .~ nextPosToAct game)
       . (pot +~ callAmount)
   where
-    player = fromJust $ find (\Player {..} -> _playerName == pName) _players --horrible performance use map for players
+    player = fromJust $ find (\Player {..} -> _playerName == pName) _players
     callAmount =
       let maxBetShortfall = _maxBet - (player ^. bet)
           playerChips = player ^. chips

@@ -23,7 +23,7 @@ import Poker.Game.Blinds
     updatePlayersInHand,
   )
 import Poker.Game.Utils (getGamePlayerNames, initialDeck)
-import Poker.Generators (allPStates, genGame)
+import Poker.GeneratorsSpec (allPStates, genGame)
 import Poker.Poker (initPlayer, initialGameState)
 import Poker.Types
   ( Blind (Big, NoBlind, Small),

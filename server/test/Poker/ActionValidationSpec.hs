@@ -24,7 +24,7 @@ import Poker.ActionValidation
     validateBlindAction,
   )
 import Poker.Game.Utils (initialDeck)
-import Poker.Generators (allPStates, allPStreets, genGame)
+import Poker.GeneratorsSpec (allPStates, allPStreets, genGame)
 import Poker.Poker (initialGameState)
 import Poker.Types
   ( Action (Check, Fold, LeaveSeat', PostBlind, SitOut, Timeout),

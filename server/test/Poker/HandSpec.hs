@@ -12,7 +12,7 @@ import Hedgehog (Property, forAll, property, (===))
 import qualified Hedgehog.Gen as Gen
 import qualified Hedgehog.Range as Range
 import Poker.Game.Hands (maybeFlush, value)
-import Poker.Generators (genSameSuitCards, genShuffledCards)
+import Poker.GeneratorsSpec (genSameSuitCards, genShuffledCards)
 import Test.Hspec (describe, it)
 import Test.Hspec.Hedgehog
   ( PropertyT,

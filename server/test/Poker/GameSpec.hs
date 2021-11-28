@@ -37,7 +37,7 @@ import Poker.Game.Game
     progressToTurn,
   )
 import Poker.Game.Utils (getActivePlayers, initialDeck)
-import Poker.Generators
+import Poker.GeneratorsSpec
   ( allPStates,
     allPStreets,
     genGame,

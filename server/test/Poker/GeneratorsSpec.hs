@@ -4,7 +4,7 @@
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
-module Poker.Generators where
+module Poker.GeneratorsSpec where
 
 import Control.Lens
   ( Field2 (_2),
@@ -12,6 +12,7 @@ import Control.Lens
     (%~),
     (.~),
     (^.),
+    element
   )
 import Control.Monad (Monad (return), replicateM)
 import Control.Monad.State (Monad (return), replicateM)
@@ -29,29 +30,21 @@ import Debug.Trace ()
 import GHC.Enum (Enum (fromEnum))
 import Hedgehog (Gen)
 import qualified Hedgehog.Gen as Gen
+import Hedgehog (Property, forAll, property, (===))
+import qualified Hedgehog.Gen as Gen
 import qualified Hedgehog.Range as Range
-import Poker.Game.Game (getWinners, nextIPlayerToAct)
+import Test.Hspec (describe, it)
+import Test.Hspec.Hedgehog
+import qualified Hedgehog.Range as Range
+import Poker.Game.Game 
 import Poker.Game.Utils
   ( getActivePlayers,
     getPlayersSatIn,
     initialDeck,
   )
 import Poker.Types
-  ( Card (suit),
-    Deck (..),
-    Game (..),
-    Player (..),
-    PlayerName,
-    PlayerState (Folded, SatOut),
-    PocketCards (..),
-    Street (..),
-    Suit (Diamonds, Spades),
-    Winners (NoWinners),
-    bet,
-    playerName,
-    unDeck,
-  )
 import Prelude
+
 
 allPStates :: [PlayerState]
 allPStates = [SatOut ..]
@@ -95,6 +88,7 @@ genDealPockets cs = do
 
 genNoPockets :: [Card] -> Gen (Maybe PocketCards, [Card])
 genNoPockets cs = return (Nothing, cs)
+
 
 genPlayers :: Street -> Int -> [PlayerState] -> Int -> [Card] -> Gen ([Player], [Card])
 genPlayers street' requiredInPlayers possibleStates playerCount cs = do
@@ -153,6 +147,19 @@ genPlayer street' _playerState _playerName _pockets = do
     minChips = if _playerState == Folded then 1 else 0
     _possibleActions = []
 
+--genPlayers :: HandStatus -> Game
+
+--
+--genHand' :: Gen Game
+--genHand' 
+
+--genHand :: HandStatus -> Game
+--genHand 
+--  | EveryoneFolded = do
+--      genPlayers EveryoneFolded
+      
+
+
 genGame :: [Street] -> [PlayerState] -> Gen Game
 genGame possibleStreets pStates = do
   _street <- Gen.element possibleStreets
@@ -181,3 +188,119 @@ genGame possibleStreets pStates = do
   let g'' = Game {..}
       _currentPosToAct = fst <$> nextIPlayerToAct g'' (Just _dealer)
   return Game {..}
+
+genCurrentPosToAct :: Gen (Maybe Int)
+genCurrentPosToAct = Gen.maybe $ Gen.int $ Range.constant 0 8
+
+genHandStatus :: Maybe Int -> Gen HandStatus
+genHandStatus (Just posToAct) = return $ CurrentPosToAct posToAct
+genHandStatus currPosToAct = Gen.element [EveryoneFolded, EveryoneAllIn, StreetFinished] 
+
+genPlayerCount :: Maybe Int -> Gen Int
+genPlayerCount (Just posToAct) = Gen.int $ Range.constant (min 2 $ posToAct + 1) 9
+genPlayerCount Nothing = Gen.int $ Range.constant 2 9
+
+--genHandWithStatus :: HandStatus :: Gen Game
+--genHandWithStatus 
+
+
+genPlayer'' :: Street -> [PlayerState] -> Int -> [Card] -> Gen (Player, [Card])
+genPlayer'' street' possibleStates position cs = do
+  pState <- Gen.element possibleStates
+  let shouldDeal = pState /= SatOut || null cs
+  (pocketCs, remainingCs) <- if shouldDeal then genDealPockets cs else genNoPockets cs
+  p <- genPlayer street' pState pName pocketCs
+  return (p, remainingCs)
+  where
+    pName = "player" <> T.pack (show position)
+
+
+genPlayerStates :: Int ->  HandStatus -> Gen [PlayerState] 
+genPlayerStates playerCount =
+  \case
+    EveryoneFolded -> genPlayerStates' 1 1 playerCount
+    EveryoneAllIn -> do
+      let maxActives = 1
+      let minActives = 0
+      genPlayerStates' minActives maxActives playerCount
+  
+    StreetFinished -> do
+       let maxActives = playerCount
+       let minActives = 2
+       genPlayerStates' minActives maxActives playerCount
+  
+    CurrentPosToAct posToAct -> do
+        let maxActives = playerCount - 1
+        let minActives = 2
+        ps <- genPlayerStates' minActives maxActives playerCount
+        return $ (element posToAct .~ In) ps
+
+genPlayerStates' minActives maxActives playerCount = do
+      activesCount <- Gen.int $ Range.constant minActives maxActives
+      ps <- Gen.shuffle $ (replicate activesCount In) <> (replicate (playerCount - activesCount) SatOut)
+      return ps
+
+data InHandStatus = Folded | AllIn | HasCalled Int | NeedsToCall Int | HasBet Int | HasRaised Int
+  deriving (Show, Eq, Read, Ord)
+
+genPlayer''' :: Int -> Int -> InHandStatus -> GenPlayer
+genPlayer'''  maxBet
+  | Folded = undefined
+  | AllIn = undefined
+  | HasCalled amount = undefined
+  | NeedsToCall amount = undefined
+  | HasBet amount = undefined
+  | HasRaised amount = undefined
+
+genPlayers''' :: [PlayerState] -> HandStatus -> [Player]
+genPlayers''' ps = 
+  \case
+    EveryoneFolded -> genPlayerStates' 1 1 playerCount
+    EveryoneAllIn -> do
+      let maxActives = 1
+      let minActives = 0
+      genPlayerStates' minActives maxActives playerCount
+  
+    StreetFinished -> do
+       let maxActives = playerCount
+       let minActives = 2
+       genPlayerStates' minActives maxActives playerCount
+  
+    CurrentPosToAct posToAct -> do
+        let maxActives = playerCount - 1
+        let minActives = 2
+        ps <- genPlayerStates' minActives maxActives playerCount
+        return $ (element posToAct .~ In) ps
+
+genHand' :: Gen Game
+genHand' = do
+   _street <- Gen.element [PreFlop, Flop, Turn, River]
+
+   _currentPosToAct <- genCurrentPosToAct
+   playerCount <- genPlayerCount _currentPosToAct
+   handStatus <- genHandStatus _currentPosToAct
+   playerStatuses <- genPlayerStates playerCount handStatus
+   actions <- genStActions handStatus playerStatuses 
+   ps genPlayers 
+
+   undefined
+
+spec = do
+  describe "generators" $ do
+    
+    it "game coverage by handStatus" $ 
+      hedgehog $ do
+          Gen.printTree genHand'
+
+          g <- forAll genHand'
+          
+          cover 20 "everyone folded" (handStatus g == EveryoneFolded)
+          cover 20 "everyone all in" (handStatus g == EveryoneAllIn)
+          cover 20 "A player can act" (canPlayerAct $ handStatus g)
+          cover 20 "Street has finished" (handStatus g == StreetFinished)
+
+    it "Status should be EveryoneFolded if all players have folded" $
+      hedgehog $ do
+        g <- forAll $ Gen.filter awaitingPlayerAction (genGame [PreFlop, Flop, Turn, River] [Folded])
+        
+        handStatus g === EveryoneFolded
