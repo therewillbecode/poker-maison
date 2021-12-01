@@ -9,6 +9,7 @@ module Poker.FSMSpec where
 
 import Control.Lens
 import Control.Monad
+
 import Control.Monad.State
 import Data.Either ()
 import qualified Data.List as List
@@ -24,7 +25,7 @@ import Data.Traversable (mapAccumR)
 import Data.Tuple (fst, swap)
 import qualified Data.Vector as V
 import System.Random (getStdGen)
-import Debug.Trace ()
+import Debug.Trace 
 import GHC.Enum (Enum (fromEnum))
 import Hedgehog (Gen)
 import qualified Hedgehog.Gen as Gen
@@ -116,6 +117,9 @@ data PPostBlind (v :: * -> *) =
     PPostBlind PlayerPos GBlind
   deriving (Eq, Show)
 
+instance HTraversable PPostBlind where
+  htraverse _ (PPostBlind pos blind) = pure (PPostBlind pos blind)
+
 data PBet (v :: * -> *) =
     PBet PlayerPos Int
   deriving (Eq, Show)
@@ -144,13 +148,19 @@ data GameModel (v :: * -> *) =
 genNewPlayer :: Int -> Int -> Int -> Gen GNewPlayer
 genNewPlayer pos minChips maxChips = do 
     cs <- Gen.int $ Range.constant minChips maxChips
-    return $ GNewPlayer (T.pack $ show pos) cs
+    name <- Gen.int $ Range.constant 0 10000000
+    return $ GNewPlayer (T.pack $ show name) cs
 
 
 newGameIO :: IO (IORef Game)
 newGameIO = do
     randGen <- getStdGen
     newIORef $ initialGameState $ shuffledDeck randGen
+
+resetGameIO :: IORef Game -> IO ()
+resetGameIO ref = do
+    randGen <- getStdGen
+    atomicWriteIORef ref $ initialGameState $ shuffledDeck randGen
 
 {-
 data GBlindsStatus =  
@@ -225,14 +235,18 @@ s_post_blind ref =
           -- Pick any possible blind
           (GModel (GNotStarted) ps dlr  _ _ _) ->
             let
-               blindGen :: Gen (PlayerPos, GBlind)
-               blindGen =  Gen.element $ fromJust $ reqBlinds dlr ps
-            in pure $ fmap (uncurry PPostBlind) blindGen
+               blindGen :: Maybe [(PlayerPos, GBlind)]
+               blindGen = reqBlinds dlr ps
+            in case blindGen of
+                Nothing -> Nothing
+                Just [] -> Nothing
+                Just bs -> pure $ fmap (uncurry PPostBlind) $ Gen.element bs
   
           _ -> Nothing
     execute :: (MonadTest m, MonadIO m) => PPostBlind v -> m Game
     execute (PPostBlind (PlayerPos pos) blind) = do
        prevGame <- liftIO $ readIORef ref
+       footnote $ show prevGame
        let pName = ((prevGame ^. players) !! pos ) ^. playerName
        newGame <- evalEither 
                      $ runPlayerAction prevGame 
@@ -276,13 +290,15 @@ s_sit_down_new_player ref =
       case state of
         (GModel (GNotStarted) ps _ (MaxPlayerCount maxPlayers) (MaxBuyInChips maxChips) (MinBuyInChips minChips)) ->
             if length ps < maxPlayers
-                then Just $ fmap PSitDown $ genNewPlayer (length ps) minChips maxChips
+                then traceShow (length ps)  $ Just $ fmap PSitDown $ genNewPlayer (length ps + 1) minChips maxChips
                 else Nothing
         _ -> Nothing
  
     execute :: (MonadTest m, MonadIO m) => PSitDown v -> m Game
     execute (PSitDown (GNewPlayer name chips))  = do
        prevGame <- liftIO $ readIORef ref
+       footnote $ show prevGame
+      -- footnote $ show prevGame
        newGame <- evalEither $ runPlayerAction prevGame playerAction
        liftIO $ atomicWriteIORef ref newGame
        return newGame
@@ -292,11 +308,14 @@ s_sit_down_new_player ref =
     Command gen execute [
         -- Precondition: the 
         Require $ 
-          \(GModel gStatus ps maxPs _ (MaxBuyInChips maxChips)
+          \(GModel gStatus ps _ (MaxPlayerCount maxPs) (MaxBuyInChips maxChips)
            (MinBuyInChips minChips))
-           (PSitDown (GNewPlayer name chips)) -> 
+           (PSitDown (GNewPlayer name chips)) ->
                gStatus == GNotStarted
-                && chips >= minChips && chips <= maxChips
+                 && chips >= minChips && chips <= maxChips
+                  && length ps < maxPs
+                    && read (T.unpack name) > length ps
+                      && (length ps) < maxPs
 
         -- Update: add player to table in model
       , Update $ \(GModel gStatus ps maxPs dlr maxChips minChips) (PSitDown _) (game :: Var Game v) ->
@@ -317,8 +336,10 @@ spec =
         hedgehog $ do
                 ref <- liftIO newGameIO
                 actions <- forAll $
-                   Gen.sequential (Range.linear 1 6) initialModel [
-                       s_sit_down_new_player ref
+                   Gen.sequential (Range.linear 1 5) initialModel [
+                       s_sit_down_new_player ref,
+                       s_post_blind ref
                    
                      ]
+                liftIO $ resetGameIO ref
                 executeSequential initialModel actions
