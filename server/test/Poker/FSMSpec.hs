@@ -51,8 +51,13 @@ import Prelude
 import Hedgehog
 
 
+
 initialModel :: GameModel v
-initialModel = GModel GNotStarted [] (Dealer 0) (MaxPlayerCount 6) (MaxBuyInChips 3000) (MinBuyInChips 1500)
+initialModel = GModel GNotStarted [] 
+                 (Dealer 0) 
+                 (MaxPlayerCount 6) 
+                 (MaxBuyInChips 3000) 
+                 (MinBuyInChips 1500)
 
 
 data GHandStatus = 
@@ -87,6 +92,13 @@ newtype PlayerPos = PlayerPos Int deriving (Eq, Ord, Show)
 
 data GNewPlayer =
     GNewPlayer Text Int
+  deriving (Eq, Show)
+
+instance HTraversable PTimeout where
+  htraverse _ (PTimeout pos) = pure (PTimeout pos)
+
+data PTimeout (v :: * -> *) =
+    PTimeout PlayerPos
   deriving (Eq, Show)
 
 newtype PSitDown (v :: * -> *) =
@@ -161,6 +173,9 @@ nextElemfromNth f ps n = find f $ drop n $ cycle ps
 -- TODO Should also add actions / commands that should fail i.e cannot bet when all in etc
 -- you just flip the either for this - see example in yow lambda talk.
 
+NEED to use VARS see
+https://stackoverflow.com/questions/56406210/haskell-define-specialization-of-function-thats-polymorphic-in-type
+
 reqBlinds :: Dealer -> [GPlayer] -> Maybe [(PlayerPos, GBlind)]
 reqBlinds (Dealer dlr) ps 
   | length actives < 2 = Just []
@@ -176,17 +191,18 @@ reqBlinds (Dealer dlr) ps
    where actives = filter ((/= PSatOut) . fst) $ zip ps $ PlayerPos <$> [0..]
 
 dealerPlusNActives dealerPos actives n = nextElemfromNth (const True) (cycle actives) (dealerPos + n)
- 
 
-nextBlind :: (PlayerPos, GBlind) -> Dealer -> [GPlayer] -> Maybe (PlayerPos, GBlind)
-nextBlind (postPos, blind) dlr ps =
-    case remainingBlinds of 
-        Nothing -> Nothing
-        Just [] -> Nothing 
-        Just (a:_) -> Just a
-    where
-      remainingBlinds :: Maybe [(PlayerPos, GBlind)]
-      remainingBlinds = (filter ((/=) postPos . fst)) <$> (reqBlinds dlr ps)
+
+nextBlind :: PlayerPos -> Dealer -> [GPlayer] -> Maybe (PlayerPos, GBlind)
+nextBlind postPos dlr ps = do
+    reqBlinds' <- (reqBlinds dlr ps)
+    nextElemfromNth ((/=) postPos . fst) reqBlinds' 1
+
+    --where
+    --  ixPosted :: Maybe Int
+    --  ixPosted = (findIndex ((/=) postPos . fst)) pos
+    --  remainingBlinds :: Maybe [(PlayerPos, GBlind)]
+    --  remainingBlinds = (filter ((/=) postPos . fst)) <$> (reqBlinds dlr ps)
 
 
 data GBlind = BB | SB
@@ -211,9 +227,14 @@ s_post_blind ref =
         case state of
           -- Another player already posted a blind to start the blind action
           -- Pick the next required blind
-          (GModel (GBlinds (GBlindPosting (GAwaitingBlind (pos, blind)))) ps _  _ _ _) ->
-             Just $ pure $ PPostBlind pos blind
+          (GModel (GBlinds (GBlindPosting (GAwaitingBlind (PlayerPos pos, blind)))) ps _  _ _ _) ->
+              case ps ^? ix pos of
+                  Nothing -> error "awaiting pos to act out of bounds"
+                  Just (PInBlind (PHasPostedBlind)) -> error $ (show pos) <> "pos already posted"
+                  Just (PInBlind (PHasNotPostedBlind)) ->   
+                        Just $ pure $ PPostBlind (PlayerPos pos) blind
 
+            
           -- Pick any possible blind
           (GModel (GNotStarted) ps dlr  _ _ _) ->
             let
@@ -222,9 +243,13 @@ s_post_blind ref =
             in case blindGen of
                 Nothing -> Nothing
                 Just [] -> Nothing
-                Just bs -> pure $ fmap (uncurry PPostBlind) $ Gen.element bs
+                Just bs ->
+                    if null bs
+                      then Nothing
+                      else pure $ fmap (uncurry PPostBlind) $ Gen.element bs
   
           _ -> Nothing
+
     execute :: (MonadTest m, MonadIO m) => PPostBlind v -> m Game
     execute (PPostBlind (PlayerPos pos) blind) = do
        prevGame <- liftIO $ readIORef ref
@@ -262,73 +287,113 @@ s_post_blind ref =
        in
           Update $ \(GModel gStatus ps dlr maxPs maxChips minChips) (PPostBlind (PlayerPos pos) blind') (newGame :: Var Game v) ->
              let newPs = markPostedBlind ps pos
-                 mbNextBlind = nextBlind (PlayerPos pos, blind') dlr ps
-                 newGStatus = nextStatus mbNextBlind
+                 mbNextBlind =  --trace (show pos <> "next " <> (show $ nextBlind (PlayerPos pos) dlr ps)) 
+                                (nextBlind (PlayerPos pos) dlr newPs) 
+                 newGStatus = trace (show pos <> (show mbNextBlind)) (nextStatus mbNextBlind)
              in (GModel newGStatus newPs dlr maxPs maxChips minChips)
 --
          -- Postcondition: 
-       , Ensure $ \(GModel gStatus prevPlayers _ _ _ _) (GModel _ nextPlayers _ _ _ _) (PPostBlind (PlayerPos pos) _) (game :: Game) -> 
+       , Ensure $ \(GModel _ prevPlayers _ _ _ _) (GModel gStatus nextPlayers _ _ _ _) (PPostBlind pos _) (game :: Game) -> 
          do
+         --  diff
+           annotateShow (awaitingBlind gStatus)
+           annotateShow pos
+           diff (Just $ PInBlind PHasNotPostedBlind) (==) 
+                   (case (awaitingBlind gStatus) of
+                      Nothing -> Nothing
+                      Just (PlayerPos awaitPos) ->
+                          nextPlayers ^? ix awaitPos)
+
+
+--           assert $ awaitingBlindFromPlyrNotPosted newPs $ awaitingBlind gStatus
+           diff (awaitingBlind gStatus) (/=) (Just pos)
            assert $ blindsPostedCount nextPlayers <= 2
-           assert $ blindsPostedCount prevPlayers < blindsPostedCount nextPlayers
+           diff (blindsPostedCount prevPlayers) (<) (blindsPostedCount nextPlayers)
            game ^. street === PreDeal
            length prevPlayers === length nextPlayers
       ]
-  where
-    blindsPostedCount :: [GPlayer] -> Int
-    blindsPostedCount = length . filter ((==) (PInBlind PHasPostedBlind))
-
+  where    
     canPostBlindAtStage :: [GPlayer] -> GStatus -> Bool
     canPostBlindAtStage _ (GBlinds (GBlindPosting _)) = True
     canPostBlindAtStage ps GNotStarted = length (dropSatOutPs ps) > 1 
     canPostBlindAtStage _ _ = False
 
+--    awaitingBlindFromPlyrNotPosted :: [GPlayer] -> Maybe PlayerPos -> Maybe
+--    awaitingBlindFromPlyrNotPosted ps (Just pos) = case ps ^? pos of 
+--        Nothing -> error "awaiting blind from pos ix out of range" 
+--        Just (PInBlind PHasPostedBlind ) -> False
+--        Just (PInBlind PHasNotPostedBlind ) -> True
+--        Just (PSatOut PHasPostedBlind) -> error "awaiting blind from sat out player"
+--
+--    awaitingBlindFromPlyrNotPosted _ _ True  
 
-s_time_out_blind_post :: (MonadTest m, MonadIO m) => IORef Game -> Command (GenT Identity) m GameModel
-s_time_out_blind_post ref =
+blindsPostedCount :: [GPlayer] -> Int
+blindsPostedCount = length . filter ((==) (PInBlind PHasPostedBlind))
+
+s_time_out_post_blind :: (MonadTest m, MonadIO m) => IORef Game -> Command (GenT Identity) m GameModel
+s_time_out_post_blind ref =
  let
     -- Fake a timeout occuring when a player has to post a blind.
     gen state =
       case state of
-          (GModel gStatus _ _ _ _ _) -> maybe $ awaitingBlind gStatus  
-          
-          if blindsInProgress gStatus then Just $ PTimeout
-          _ -> Nothing
+          (GModel gStatus _ _ _ _ _) -> pure . PTimeout <$> (awaitingBlind gStatus)
+
+    execute :: (MonadTest m, MonadIO m) => PTimeout v -> m Game
+    execute (PTimeout (PlayerPos pos)) = do
+       prevGame <- liftIO $ readIORef ref
+       footnote $ "Action from position " <> show pos <> ": Timeout "
+       footnote $ L.unpack $ pShowDarkBg prevGame
+       footnote  "\n"
+       footnote  "\n"
+       let pName = ((prevGame ^. players) !! pos ) ^. playerName
+       newGame <- evalEither 
+                     $ runPlayerAction prevGame 
+                     $ PlayerAction { name = pName, action = Timeout }
+       liftIO $ atomicWriteIORef ref newGame
+       return newGame
  in
     Command gen execute [
             -- Precondition: the 
         Require $ 
-          \(GModel gStatus ps maxPs _ _ _)  (PPostBlind pos blind) -> 
-            canPostBlindAtStage ps gStatus && (blindsPostedCount ps < 2)
+          \(GModel gStatus ps maxPs _ _ _)  (PTimeout pos) -> awaitingBlind gStatus == Just pos
 
-        -- Update: add blinds status in model
       ,
        let 
-          markPostedBlind :: [GPlayer] -> Int -> [GPlayer]
-          markPostedBlind ps i = ps & ix i .~ PInBlind PHasPostedBlind
+          markSatOut :: [GPlayer] -> Int -> [GPlayer]
+          markSatOut ps i = ps & ix i .~ PSatOut
 
           nextStatus :: Maybe (PlayerPos, GBlind) -> GStatus
           nextStatus = GBlinds . (maybe GBlindPostingFinished (GBlindPosting . GAwaitingBlind))
 
        in
-          Update $ \(GModel gStatus ps dlr maxPs maxChips minChips) (PPostBlind (PlayerPos pos) blind') (newGame :: Var Game v) ->
-             let newPs = markPostedBlind ps pos
-                 mbNextBlind = nextBlind (PlayerPos pos, blind') dlr ps
-                 newGStatus = nextStatus mbNextBlind
+          Update $ \(GModel gStatus ps dlr maxPs maxChips minChips) 
+                    (PTimeout (PlayerPos pos))
+                    (newGame :: Var Game v) ->
+             let newPs = markSatOut ps pos
+                 mbNextBlind = nextBlind (PlayerPos pos) dlr ps
+                 blindsPosted = length $ filter ((==) $ PInBlind PHasPostedBlind) ps
+                 notPostedBlind = length $ filter ((==)  $ PInBlind PHasNotPostedBlind) ps
+                 newGStatus = if (blindsPosted < 2) && (notPostedBlind > 0) 
+                                 then nextStatus mbNextBlind
+                                 else GNotStarted
              in (GModel newGStatus newPs dlr maxPs maxChips minChips)
 --
          -- Postcondition: 
-       , Ensure $ \(GModel gStatus prevPlayers _ _ _ _) (GModel _ nextPlayers _ _ _ _) (PPostBlind (PlayerPos pos) _) (game :: Game) -> 
-         do
+       , Ensure $ \(GModel _ prevPlayers _ _ _ _) 
+                   (GModel gStatus nextPlayers _ _ _ _)
+                   (PTimeout pos) 
+                   (game :: Game) -> 
+         do 
+           diff (awaitingBlind gStatus) (/=) (Just pos)
            assert $ blindsPostedCount nextPlayers <= 2
-           assert $ blindsPostedCount prevPlayers < blindsPostedCount nextPlayers
            game ^. street === PreDeal
            length prevPlayers === length nextPlayers
       ]
-    awaitingBlind :: GStatus -> Maybe PlayerPos
-    awaitingBlind (GBlinds (GBlindPosting (AwaitingBlindG (pos,_)))) = Just pos 
-    awaitingBlind _ = Nothing
 
+
+awaitingBlind :: GStatus -> Maybe PlayerPos
+awaitingBlind (GBlinds (GBlindPosting (GAwaitingBlind (pos,_)))) = Just pos 
+awaitingBlind _ = Nothing
 
 
 s_sit_down_new_player :: (MonadTest m, MonadIO m) => IORef Game -> Command (GenT Identity) m GameModel
@@ -377,6 +442,7 @@ s_sit_down_new_player ref =
       , Ensure $ \(GModel gStatus prevPlayers _ _ _ _) (GModel _ nextPlayers _ _ _ _) (PSitDown _) _ -> do
           length nextPlayers === (length prevPlayers) + 1
           gStatus === GNotStarted
+          
       ]
 
 
@@ -387,9 +453,10 @@ spec =
         hedgehog $ do
                 ref <- liftIO newGameIO
                 actions <- forAll $
-                   Gen.sequential (Range.linear 1 5) initialModel [
+                   Gen.sequential (Range.linear 1 9) initialModel [
                        s_sit_down_new_player ref,
-                       s_post_blind ref
+                       s_post_blind ref,
+                       s_time_out_post_blind ref
                    
                      ]
                 liftIO $ resetGameIO ref
