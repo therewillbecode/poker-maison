@@ -257,10 +257,7 @@ s_post_blind ref =
           markPostedBlind ps i = ps & ix i .~ PInBlind PHasPostedBlind
 
           nextStatus :: Maybe (PlayerPos, GBlind) -> GStatus
-          nextStatus = 
-            GBlinds 
-                    . (maybe GBlindPostingFinished 
-                      (GBlindPosting . GAwaitingBlind))
+          nextStatus = GBlinds . (maybe GBlindPostingFinished (GBlindPosting . GAwaitingBlind))
 
        in
           Update $ \(GModel gStatus ps dlr maxPs maxChips minChips) (PPostBlind (PlayerPos pos) blind') (newGame :: Var Game v) ->
@@ -285,6 +282,53 @@ s_post_blind ref =
     canPostBlindAtStage _ (GBlinds (GBlindPosting _)) = True
     canPostBlindAtStage ps GNotStarted = length (dropSatOutPs ps) > 1 
     canPostBlindAtStage _ _ = False
+
+
+s_time_out_blind_post :: (MonadTest m, MonadIO m) => IORef Game -> Command (GenT Identity) m GameModel
+s_time_out_blind_post ref =
+ let
+    -- Fake a timeout occuring when a player has to post a blind.
+    gen state =
+      case state of
+          (GModel gStatus _ _ _ _ _) -> maybe $ awaitingBlind gStatus  
+          
+          if blindsInProgress gStatus then Just $ PTimeout
+          _ -> Nothing
+ in
+    Command gen execute [
+            -- Precondition: the 
+        Require $ 
+          \(GModel gStatus ps maxPs _ _ _)  (PPostBlind pos blind) -> 
+            canPostBlindAtStage ps gStatus && (blindsPostedCount ps < 2)
+
+        -- Update: add blinds status in model
+      ,
+       let 
+          markPostedBlind :: [GPlayer] -> Int -> [GPlayer]
+          markPostedBlind ps i = ps & ix i .~ PInBlind PHasPostedBlind
+
+          nextStatus :: Maybe (PlayerPos, GBlind) -> GStatus
+          nextStatus = GBlinds . (maybe GBlindPostingFinished (GBlindPosting . GAwaitingBlind))
+
+       in
+          Update $ \(GModel gStatus ps dlr maxPs maxChips minChips) (PPostBlind (PlayerPos pos) blind') (newGame :: Var Game v) ->
+             let newPs = markPostedBlind ps pos
+                 mbNextBlind = nextBlind (PlayerPos pos, blind') dlr ps
+                 newGStatus = nextStatus mbNextBlind
+             in (GModel newGStatus newPs dlr maxPs maxChips minChips)
+--
+         -- Postcondition: 
+       , Ensure $ \(GModel gStatus prevPlayers _ _ _ _) (GModel _ nextPlayers _ _ _ _) (PPostBlind (PlayerPos pos) _) (game :: Game) -> 
+         do
+           assert $ blindsPostedCount nextPlayers <= 2
+           assert $ blindsPostedCount prevPlayers < blindsPostedCount nextPlayers
+           game ^. street === PreDeal
+           length prevPlayers === length nextPlayers
+      ]
+    awaitingBlind :: GStatus -> Maybe PlayerPos
+    awaitingBlind (GBlinds (GBlindPosting (AwaitingBlindG (pos,_)))) = Just pos 
+    awaitingBlind _ = Nothing
+
 
 
 s_sit_down_new_player :: (MonadTest m, MonadIO m) => IORef Game -> Command (GenT Identity) m GameModel
