@@ -76,7 +76,7 @@ initialModel = GModel NotInited'  NotInited
 genNewPlayer :: Int -> Gen GNewPlayer
 genNewPlayer pos = do 
     cs <- Gen.int $ Range.constant 1500 2000
-    return $ GNewPlayer (T.pack $ show pos) cs
+    return $ GNewPlayer -- (T.pack $ show pos) cs
 
 
 newGameIO :: IO (IORef Game)
@@ -91,62 +91,63 @@ resetGameIO ref = do
 
 
 
-
-
-data GNewPlayer = GNewPlayer Text Int
+data GNewPlayer = GNewPlayer --Text Int
   deriving (Eq, Show)
 
-newtype PSitDown (v :: * -> *) =
-    PSitDown GNewPlayer
+data PSitDown (v :: * -> *) =
+    PSitDown   
   deriving (Eq, Show)
 
 instance HTraversable PSitDown where
-  htraverse _ (PSitDown (GNewPlayer n c)) = 
-      pure (PSitDown (GNewPlayer n c))
+  htraverse _ (PSitDown) = 
+      pure (PSitDown)
+
 
 
 s_sit_down_new_player :: (MonadTest m, MonadIO m) => IORef Game -> Command (GenT Identity) m GModel
 s_sit_down_new_player ref =
   let
     -- This generator only produces an action to sit down when the game hand has not started yet.
-    gen state =
-      case state of
-        (GModel (GPlayers (Var ps)) toAct) ->
-            if V.length ps < 5
-                then Just $ fmap PSitDown $ genNewPlayer (V.length ps + 1)
-                else Nothing
-        _ -> Nothing
+    gen :: GModel v -> Maybe (GenT Identity (PSitDown v))
+    gen state = Just $ pure $ PSitDown -- $ NewPlayer
+
+            -- Just $ fmap PSitDown $ genSitDown ps
+               -- else Nothing
  
-    execute :: (MonadTest m, MonadIO m) => PSitDown v -> m ( Vector [Action])
-    execute (PSitDown (GNewPlayer name chips))  = do
+    execute :: (MonadTest m, MonadIO m) => PSitDown v -> m (Vector [Action])
+    execute (PSitDown)  = do
        prevGame <- liftIO $ readIORef ref
+       let name = T.pack $ show $ 1 + (  length $ _players prevGame)
        footnote $ "Action: New player \""  <> T.unpack name <>  "\" sat down"
        footnote $ L.unpack $ pShowDarkBg prevGame
        footnote  "\n"
        footnote  "\n"
-       newGame <- evalEither $ runPlayerAction prevGame playerAction
+       newGame <- evalEither $ runPlayerAction prevGame $ playerAction name
        liftIO $ atomicWriteIORef ref newGame
        return $ V.fromList $ getAllValidPlayerActions  newGame
    --    return $ (_currentPosToAct newGame, getAllValidPlayerActions newGame)
       where
-           playerAction = PlayerAction { name = name, action = SitDown $ initPlayer name chips}
+           playerAction name = PlayerAction { name = name, action = SitDown $ initPlayer name 1500}
 
   in
     Command gen execute [
         -- Precondition: the 
         Require $ 
-          \(GModel (GPlayers ps) toAct)
-           (PSitDown (GNewPlayer name chips)) ->
-                (V.length ps) < 5
+          \(GModel p toAct)
+           (PSitDown ) ->
+              case p of 
+                  NotInited' -> True 
+                  (GPlayers ( ps) ) -> htraverse V.length   ps < 5
 
         -- Update: add player to table in model
-      , Update $ \(GModel (GPlayers ps) toAct) (PSitDown _)  (actions :: Var (Vector [Action]) v) ->
+      , Update $ \(GModel _ toAct) (PSitDown )  (actions ) ->
           (GModel   (GPlayers actions) NotInited)
 
         -- Postcondition: player added to table
-      , Ensure $ \(GModel (GPlayers prevPlayers) toAct) (GModel (GPlayers nextPlayers) nextToAct) 
-                  (PSitDown _) _ -> do
-          V.length nextPlayers === (V.length prevPlayers) + 1          
+      --, Ensure $ \(GModel (GPlayers prevPlayers) toAct) 
+      --            (GModel (GPlayers nextPlayers) nextToAct) 
+      --            (PSitDown ) _ -> do
+      --    V.length (concrete nextPlayers ) === (V.length (concrete prevPlayers)) + 1          
       ]
 
 
@@ -157,7 +158,7 @@ spec =
         hedgehog $ do
                 ref <- liftIO newGameIO
                 actions <- forAll $
-                   Gen.sequential (Range.linear 1 3) initialModel [
+                   Gen.sequential (Range.linear 1 7) initialModel [
                        s_sit_down_new_player ref
                 ---       s_act ref
                  --      s_time_out_post_blind ref
