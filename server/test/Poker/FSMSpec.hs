@@ -21,6 +21,8 @@ import Data.Text (Text)
 import Data.List
 import Data.List.Lens
 import Data.Maybe
+import Data.Vector (Vector)
+import qualified Data.Vector as V
 import Data.Functor.Identity
 import qualified Data.Text as T
 import qualified Data.Text as Text
@@ -36,8 +38,8 @@ import Hedgehog (Property, forAll, property, (===))
 import qualified Hedgehog.Gen as Gen
 import Poker.Poker
 import qualified Hedgehog.Range as Range
-import Test.Hspec (describe, it)
-import Test.Hspec.Hedgehog
+import Test.Hspec (describe, it) 
+import Test.Hspec.Hedgehog hiding (Action)
 import qualified Hedgehog.Range as Range
 import Poker.Game.Game
 import Poker.Game.Utils (shuffledDeck)
@@ -49,37 +51,30 @@ import Poker.Game.Utils
 import Poker.Types
 import Data.IORef
 import Prelude
-import Hedgehog
+import Hedgehog hiding (Action)
 
 
+data GPlayers (v :: * -> *) = NotInited' | GPlayers (Var (Vector [Action]) v) deriving (Eq, Ord, Show)
 
-initialModel :: GameModel v
-initialModel = GModel GNotStarted ( []) 
-                 (Dealer 0) 
-                 (MaxPlayerCount 6) 
-                 (MaxBuyInChips 3000) 
-                 (MinBuyInChips 1500)
+data GToAct (v :: * -> *) = NotInited | Inited (Var (Maybe Int) v)  deriving (Eq, Ord, Show)
+
+data GModel (v :: * -> *) = GModel (GPlayers v) (GToAct v) deriving (Eq, Ord, Show)
 
 
-data GHandStatus = 
-     GStreetFinished
-   | GPlayerNeedsToAct Int
-   | GEveryoneFolded
-   | GEveryoneAllIn
-    deriving (Eq, Ord, Show)
+initialModel :: forall  (v :: * -> *) . GModel v
+initialModel = GModel NotInited'  NotInited
 
-data GCurrentPosToAct 
+--data GHandStatus = 
+--     GStreetFinished
+--   | GPlayerNeedsToAct Int
+--   | GEveryoneFolded
+--   | GEveryoneAllIn
+--    deriving (Eq, Ord, Show)
 
 
-data GPlayers v = GPlayers (Map (Var Int v) (Var [Action] v))
-
-data GCurrPosToAct v = GCurrPosToAct (Var (Maybe Int) v) deriving (Eq, Ord, Show)
-
-data GModel (v :: * -> *) = GModel (GPlayers v) (GCurrPosToAct v)
- 
 
 genNewPlayer :: Int -> Gen GNewPlayer
-genNewPlayer pos  = do 
+genNewPlayer pos = do 
     cs <- Gen.int $ Range.constant 1500 2000
     return $ GNewPlayer (T.pack $ show pos) cs
 
@@ -96,6 +91,65 @@ resetGameIO ref = do
 
 
 
+
+
+data GNewPlayer = GNewPlayer Text Int
+  deriving (Eq, Show)
+
+newtype PSitDown (v :: * -> *) =
+    PSitDown GNewPlayer
+  deriving (Eq, Show)
+
+instance HTraversable PSitDown where
+  htraverse _ (PSitDown (GNewPlayer n c)) = 
+      pure (PSitDown (GNewPlayer n c))
+
+
+s_sit_down_new_player :: (MonadTest m, MonadIO m) => IORef Game -> Command (GenT Identity) m GModel
+s_sit_down_new_player ref =
+  let
+    -- This generator only produces an action to sit down when the game hand has not started yet.
+    gen state =
+      case state of
+        (GModel (GPlayers (Var ps)) toAct) ->
+            if V.length ps < 5
+                then Just $ fmap PSitDown $ genNewPlayer (V.length ps + 1)
+                else Nothing
+        _ -> Nothing
+ 
+    execute :: (MonadTest m, MonadIO m) => PSitDown v -> m ( Vector [Action])
+    execute (PSitDown (GNewPlayer name chips))  = do
+       prevGame <- liftIO $ readIORef ref
+       footnote $ "Action: New player \""  <> T.unpack name <>  "\" sat down"
+       footnote $ L.unpack $ pShowDarkBg prevGame
+       footnote  "\n"
+       footnote  "\n"
+       newGame <- evalEither $ runPlayerAction prevGame playerAction
+       liftIO $ atomicWriteIORef ref newGame
+       return $ V.fromList $ getAllValidPlayerActions  newGame
+   --    return $ (_currentPosToAct newGame, getAllValidPlayerActions newGame)
+      where
+           playerAction = PlayerAction { name = name, action = SitDown $ initPlayer name chips}
+
+  in
+    Command gen execute [
+        -- Precondition: the 
+        Require $ 
+          \(GModel (GPlayers ps) toAct)
+           (PSitDown (GNewPlayer name chips)) ->
+                (V.length ps) < 5
+
+        -- Update: add player to table in model
+      , Update $ \(GModel (GPlayers ps) toAct) (PSitDown _)  (actions :: Var (Vector [Action]) v) ->
+          (GModel   (GPlayers actions) NotInited)
+
+        -- Postcondition: player added to table
+      , Ensure $ \(GModel (GPlayers prevPlayers) toAct) (GModel (GPlayers nextPlayers) nextToAct) 
+                  (PSitDown _) _ -> do
+          V.length nextPlayers === (V.length prevPlayers) + 1          
+      ]
+
+
 spec = 
     describe "fsm" $ do
 
@@ -103,9 +157,9 @@ spec =
         hedgehog $ do
                 ref <- liftIO newGameIO
                 actions <- forAll $
-                   Gen.sequential (Range.linear 1 9) initialModel [
-                       s_sit_down_new_player ref,
-                       s_act ref
+                   Gen.sequential (Range.linear 1 3) initialModel [
+                       s_sit_down_new_player ref
+                ---       s_act ref
                  --      s_time_out_post_blind ref
                    
                      ]
