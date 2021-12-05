@@ -54,12 +54,30 @@ import Prelude
 import Hedgehog hiding (Action)
 
 
-data GPlayers (v :: * -> *) = NotInited' | GPlayers (Var (Vector [Action]) v) deriving (Eq, Ord, Show)
+data GPlayers (v :: * -> *) = NotInited' | GPlayers ( (Vector [ Var Action v]) ) deriving (Eq, Ord, Show)
 
 data GToAct (v :: * -> *) = NotInited | Inited (Var (Maybe Int) v)  deriving (Eq, Ord, Show)
 
 data GModel (v :: * -> *) = GModel (GPlayers v) (GToAct v) deriving (Eq, Ord, Show)
 
+getPlayerCount :: GPlayers v -> Int
+getPlayerCount NotInited' = 0
+getPlayerCount (GPlayers ps) =  V.length  ps
+
+
+--toModel
+--  :: GModel Concrete
+--  -> GModel
+--toModel  (GModel NotInited' NotInited) =   (GModel NotInited' NotInited)
+--toModel  (GModel (GPlayers a) NotInited) = GModel (Inited $ concreteLens a) NotInited
+--toModel  (GModel NotInited' (Inited b)) =  GModel NotInited (Inited $ concreteLens b)
+--toModel  (GModel (GPlayers a) (Inited b)) =  GModel (Inited $ concreteLens a) (Inited $ concreteLens b)
+
+
+concreteLens ::
+  Lens' (Var a Concrete) a
+concreteLens =
+  lens concrete (const $ Var . Concrete)
 
 initialModel :: forall  (v :: * -> *) . GModel v
 initialModel = GModel NotInited'  NotInited
@@ -70,7 +88,6 @@ initialModel = GModel NotInited'  NotInited
 --   | GEveryoneFolded
 --   | GEveryoneAllIn
 --    deriving (Eq, Ord, Show)
-
 
 
 genNewPlayer :: Int -> Gen GNewPlayer
@@ -102,6 +119,76 @@ instance HTraversable PSitDown where
   htraverse _ (PSitDown) = 
       pure (PSitDown)
 
+data Act (v :: * -> *) =
+    Act Int (Var Action v)
+  deriving (Eq, Show)
+
+data PAct (v :: * -> *) =
+    PAct (Act v)
+  deriving (Eq, Show)
+
+instance HTraversable PAct where
+  htraverse f (PAct a) = 
+     PAct <$> htraverse f a
+
+genAction :: GPlayers v -> Maybe (Gen (PAct v))
+genAction  NotInited' = Nothing
+genAction  (GPlayers ps) = 
+    Just $ PAct . (uncurry Act)  <$> (g $ zip [0..] (V.toList ps) )
+  where 
+      g :: [(Int,[Var a v])] -> Gen (Int, Var a v) 
+      g ls = do 
+        (ix, actions)  <- Gen.element ls
+        a <- Gen.element actions
+        return (ix, a)
+
+s_valid_act :: (MonadTest m, MonadIO m) => IORef Game -> Command (GenT Identity) m GModel
+s_valid_act ref =
+  let
+    -- This generator only produces an action to sit down when the game hand has not started yet.
+    gen :: GModel v -> Maybe (GenT Identity (PAct v))
+    gen (GModel ps _) = 
+      genAction ps -- $ pure $ PSitDown -- $ NewPlayer
+
+            -- Just $ fmap PSitDown $ genSitDown ps
+               -- else Nothing
+ 
+    execute :: (MonadTest m, MonadIO m) => PAct v -> m (Vector [Action])
+    execute (PAct (Act pos action))  = do
+       prevGame <- liftIO $ readIORef ref
+       let name = T.pack $ show $ 1 + (  length $ _players prevGame)
+       footnote $ "Action: New player \""  <> T.unpack name <>  "\" sat down"
+       footnote $ L.unpack $ pShowDarkBg prevGame
+       footnote  "\n"
+       footnote  "\n"
+       newGame <- evalEither $ runPlayerAction prevGame $ playerAction name
+       liftIO $ atomicWriteIORef ref newGame
+       return $ V.fromList $ getAllValidPlayerActions  newGame
+   --    return $ (_currentPosToAct newGame, getAllValidPlayerActions newGame)
+      where
+           playerAction name = PlayerAction { name = name, action = SitDown $ initPlayer name 1500}
+
+  in
+    Command gen execute [
+        -- Precondition: the 
+        --Require $ 
+        --  \(GModel ps toAct)
+        --   (PSitDown ) -> getPlayerCount' ps < 5
+
+        -- Update: add player to table in model
+       Update $ \(GModel _ toAct) (PAct _ )  (actions :: Var (Vector [Action]) v ) ->
+          (GModel (GPlayers actions) NotInited)
+
+        -- Postcondition: player added to table
+      , Ensure $ \(GModel  prevPlayers toAct) 
+                  (GModel  nextPlayers nextToAct) 
+                  (PAct _ ) _ -> do
+             (getPlayerCount nextPlayers ) === (getPlayerCount prevPlayers)       
+      ]
+  --    d :: Var (Vector [Action]) Symbolic -> Symbolic Int 
+   --   d  (Var ps) = V.length   ps  
+
+
 
 
 s_sit_down_new_player :: (MonadTest m, MonadIO m) => IORef Game -> Command (GenT Identity) m GModel
@@ -132,23 +219,22 @@ s_sit_down_new_player ref =
   in
     Command gen execute [
         -- Precondition: the 
-        Require $ 
-          \(GModel p toAct)
-           (PSitDown ) ->
-              case p of 
-                  NotInited' -> True 
-                  (GPlayers ( ps) ) -> htraverse V.length   ps < 5
+        --Require $ 
+        --  \(GModel ps toAct)
+        --   (PSitDown ) -> getPlayerCount' ps < 5
 
         -- Update: add player to table in model
-      , Update $ \(GModel _ toAct) (PSitDown )  (actions ) ->
-          (GModel   (GPlayers actions) NotInited)
+       Update $ \(GModel _ toAct) (PSitDown )  (actions ) ->
+          (GModel (GPlayers actions) NotInited)
 
         -- Postcondition: player added to table
-      --, Ensure $ \(GModel (GPlayers prevPlayers) toAct) 
-      --            (GModel (GPlayers nextPlayers) nextToAct) 
-      --            (PSitDown ) _ -> do
-      --    V.length (concrete nextPlayers ) === (V.length (concrete prevPlayers)) + 1          
+      , Ensure $ \(GModel  prevPlayers toAct) 
+                  (GModel  nextPlayers nextToAct) 
+                  (PSitDown ) _ -> do
+             (getPlayerCount nextPlayers ) === (getPlayerCount prevPlayers) + 1          
       ]
+  --    d :: Var (Vector [Action]) Symbolic -> Symbolic Int 
+   --   d  (Var ps) = V.length   ps  
 
 
 spec = 
@@ -158,9 +244,9 @@ spec =
         hedgehog $ do
                 ref <- liftIO newGameIO
                 actions <- forAll $
-                   Gen.sequential (Range.linear 1 7) initialModel [
-                       s_sit_down_new_player ref
-                ---       s_act ref
+                   Gen.sequential (Range.linear 1 6) initialModel [
+                       s_sit_down_new_player ref,
+                       s_valid_act ref
                  --      s_time_out_post_blind ref
                    
                      ]
