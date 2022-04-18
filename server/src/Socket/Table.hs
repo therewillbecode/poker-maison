@@ -55,15 +55,7 @@ import Database.Persist.Postgresql
     withPostgresqlConn,
   )
 import qualified Network.WebSockets as WS
-import Pipes
-  ( Consumer,
-    Effect,
-    Pipe,
-    await,
-    runEffect,
-    yield,
-    (>->),
-  )
+import Pipes hiding (next)
 import Pipes.Concurrent
   ( Input,
     Output,
@@ -112,9 +104,10 @@ import Socket.Types
     TableName,
   )
 import Socket.Utils (unLobby)
-import System.Random
 import Types ()
+import System.Random
 import Prelude
+import Control.Monad.Error (MonadIO(liftIO))
 
 setUpTablePipes ::
   ConnectionString -> TVar ServerState -> TableName -> Table -> IO (Async ())
@@ -124,44 +117,65 @@ setUpTablePipes connStr s name Table {..} = do
   async $
     forever $
       runEffect $
-        gamePipeline
+        (gamePipeline
           connStr
           s
           key
           name
           gameOutMailbox
-          gameInMailbox
-  --threadDelay (7 * 1000000) -- delay so can see whats going on
+          gameInMailbox)
   where
---    botPipes botNames = mapM_ (runBot gameInMailbox gameOutMailbox) botNames
+ --   botPipes :: [Text] -> Effect IO ()
+ --   botPipes botNames = mapM_ (runBot gameInMailbox gameOutMailbox) botNames
     notFoundErr = error $ "Table " <> show name <> " doesn't exist in DB"
-{-
+
+
+
 runBot ::
   Output Game -> -- bots progress game with action and then push new game state here
-  Input Game -> -- bots subscribe to new game state here then decide whether to act
+--  Input Game -> -- bots subscribe to new game state here then decide whether to act
   Text ->
-  Consumer Game IO ()
-runBot gameInMailbox gameOutMailbox botName = do
-  g <- await
-  liftIO $ print " "
-  validActions <- liftIO $ getValidBotActions g botName
-  liftIO $ print "+++++ valid actions for: "
-  liftIO $ print botName
-  liftIO $ print validActions
-  liftIO $ print "+++++++++++++++++++++"
-  liftIO $ threadDelay (1 * 1000000) -- delay so can see whats going on
-  randIx <- liftIO $ randomRIO (0, length validActions - 1)
-  let action' = (validActions !! randIx) -- pick rand valid action
-  liftIO $ print "pick action: "
-  liftIO $ print action
-  liftIO $ print " "
+  Pipe Game Game IO ()
+runBot gameInMailbox
+-- gameOutMailbox
+  botName = do
+    g <- await
+    liftIO $ print "new game recvd"
+    liftIO $ print g
+    validActions <- liftIO $ getValidBotActions g botName
+    if null validActions then return () else takeAction g validActions
+    yield g
 
-  liftIO $ threadDelay (3 * 1000000) -- delay so can see whats going on
-  liftIO $ unless (null validActions) $ act' g action'
-  where
-    act' game action =
-      runEffect $ yield (progressGame action game) >-> toOutput gameInMailbox
--}
+    where 
+      takeAction g validActions' = do 
+         liftIO $ print $ "0+++++++++++++" <> botName <> "++++++++++++"
+         liftIO $ print $ botName <> " - valid actions : " <> (T.pack $ show validActions')
+         liftIO $ threadDelay (1 * 1000000) -- delay so can see whats going on
+
+         randIx <- liftIO $ randomRIO (0, length validActions' - 1)
+         let action' = (validActions' !! randIx) -- pick rand valid action
+         liftIO $ print $ "picked action: " <> (T.pack $ show action')
+         liftIO $ print $ "++++++++++++++" <> botName <> "++++++++++++"
+         liftIO $ threadDelay (1 * 1000000) -- delay so can see whats going on
+         liftIO $ act' botName g action'
+
+      act' :: Text -> Game -> Action -> IO () --(Maybe Game)
+      act' botName  g a = do
+        let botAction = PlayerAction {name = botName, action = a}
+        let eitherNewGame = runPlayerAction g botAction
+        case eitherNewGame of
+          Left gameErr -> do 
+            print "ERROR:  running a supposedly valid game action didn't work, not really a bot valid action"
+            print  gameErr
+            return ()
+          Right newGame -> runEffect $ yield newGame >-> toOutput gameInMailbox
+         --   do
+         -- gen <- newStdGen
+         -- let progressedGame = progressGame gen g
+         -- liftIO $ print "new game in bot loop"
+         -- liftIO $ print progressedGame
+      
+
 
 getValidBotActions :: Game -> PlayerName -> IO [Action]
 getValidBotActions g@Game {..} name = do
@@ -209,7 +223,35 @@ gamePipeline connStr s key tableName outMailbox inMailbox = do
     >-> writeGameToDB connStr key
     >-> nextStagePause
     >-> timePlayer s tableName
+
+    >-> runBot inMailbox "bot1"
+
+
     >-> progress inMailbox -- new gamestates go in this output source
+
+
+  --async $ forever $ runEffect $ fromInput gameOutMailbox >-> runBot gameInMailbox "bot1"
+--
+  -- -- broadcast new game to connected websocket clients who subscribed
+  --async $ forever $ runEffect $ fromInput gameOutMailbox >-> broadcast s name
+
+   -- bots action loop
+
+
+-- TODO - BROADCASTING SHOULDN@T BE IN GAME pipeline but should be a consumer that listens to
+-- gameInMailbox 
+--
+-- Because otherwise only player actions get broadcast and not bot getValidBotActions
+-- 
+-- benefit is that then we can take broadcast out of the game pipeline and put the whole 
+-- gamePipeline in STM!!!
+
+
+--  threadDelay (7 * 1000000) -- delay so can see whats going on
+
+
+
+
 
 -- TODO should group as manny effect in stm monad not IO -- perhaps
 
@@ -277,15 +319,16 @@ nextStagePause = do
 -- the previous game state just went through.
 progress :: Output Game -> Consumer Game IO ()
 progress gameInMailbox = do
+  liftIO $ print "new game in PROR"
   g <- await
-  liftIO $ print "can progress game in pipe?"
-  liftIO $ print $ (canProgressGame g)
+  --liftIO $ print "can progress game in pipe?"
+  --liftIO $ print $ canProgressGame g
   when (canProgressGame g) (progress' g)
   where
     progress' game = do
       gen <- liftIO getStdGen
       liftIO $ setStdGen $ snd $ next gen
-      liftIO $ print "PIPE PROGRESSING GAME"
+   --   liftIO $ print "PIPE PROGRESSING GAME"
       runEffect $ yield (progressGame gen game) >-> toOutput gameInMailbox
 
 writeGameToDB :: ConnectionString -> Key TableEntity -> Pipe Game Game IO ()
@@ -307,16 +350,20 @@ informSubscriber n g Client {..} = do
 -- At the moment all clients receive updates from every game indiscriminately
 broadcast :: TVar ServerState -> TableName -> Pipe Game Game IO ()
 broadcast s n = do
+  liftIO $ print  "Broadcasting"
   g <- await
   ServerState {..} <- liftIO $ readTVarIO s
   let usernames' = M.keys clients -- usernames to broadcast to
   liftIO $ async $ mapM_ (informSubscriber n g) clients
+  return ()
   yield g
+
 
 logGame :: TableName -> Pipe Game Game IO ()
 logGame tableName = do
   g <- await
-  liftIO $ print g
+  liftIO $ print "its happenging"
+ -- liftIO $ print g
   yield g
 
 -- Lookups up a table with the given name and writes the new game state

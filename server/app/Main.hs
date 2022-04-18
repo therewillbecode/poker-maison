@@ -26,9 +26,10 @@ main = do
   dbConnString  <- getDBConnStrFromEnv
   userAPIPort   <- getAuthAPIPort defaultUserAPIPort
   socketAPIPort <- getSocketAPIPort defaultSocketAPIPort
+  
+  -- todo delete me
   redisConfig   <- getRedisHostFromEnv defaultRedisHost
-  print "REDIS config: "
-  print redisConfig
+
   secretKey <- getSecretKey
   let runSocketAPI =
         runSocketServer secretKey socketAPIPort dbConnString redisConfig

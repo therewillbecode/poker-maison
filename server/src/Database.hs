@@ -152,13 +152,15 @@ dbGetUserByLogin connString Login {..} = do
     Just (Entity _ userE) -> Just userE
     Nothing -> Nothing
 
+-- Not using redis anymore
 fetchUserByEmail ::
   ConnectionString -> RedisConfig -> Text -> IO (Maybe UserEntity)
 fetchUserByEmail connString redisConfig email = do
-  maybeCachedUser <- liftIO $ redisFetchUserByEmail redisConfig email
-  case maybeCachedUser of
-    Just userE -> return $ Just userE
-    Nothing -> dbGetUserByEmail connString email
+  --maybeCachedUser <- liftIO $ redisFetchUserByEmail redisConfig email
+  --case maybeCachedUser of
+  --  Just userE -> return $ Just userE
+  --  Nothing ->
+  dbGetUserByEmail connString email
 
 -------  Redis  --------
 runRedisAction :: RedisConfig -> Redis a -> IO a
@@ -176,6 +178,7 @@ cacheUser redisConfig email userE =
         3600
         (pack . show $ userE)
 
+-- delete me - -- Not using redis anymore
 redisFetchUserByEmail :: RedisConfig -> Text -> IO (Maybe UserEntity)
 redisFetchUserByEmail redisConfig email = runRedisAction redisConfig $ do
   result <- Redis.get (pack . show $ email)

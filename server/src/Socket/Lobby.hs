@@ -24,7 +24,7 @@ import Data.List (unfoldr)
 import Data.Map.Lazy (Map)
 import qualified Data.Map.Lazy as M
 import Data.Text (Text)
-import Pipes.Concurrent (atomically, newest, spawn)
+import Pipes.Concurrent (atomically, newest,latest, spawn)
 import Poker.Game.Utils (shuffledDeck)
 import Poker.Poker (initPlayer, initialGameState)
 import Poker.Types (Game (..))
@@ -44,7 +44,8 @@ initialLobby = do
   chan <- atomically newBroadcastTChan
   randGen <- getStdGen
   let shuffledDeck' = shuffledDeck randGen
-  (output, input) <- spawn $ newest 1
+  let initGame = initialGameState shuffledDeck'
+  (output, input) <- spawn $ newest 1 -- latest initGame
   let tableName = "Black"
   let table' =
         Table
@@ -52,7 +53,7 @@ initialLobby = do
             gameInMailbox = output,
             gameOutMailbox = input,
             waitlist = [],
-            game = initialGameState shuffledDeck',
+            game = initGame,
             channel = chan,
             config = headsUpBotsConfig
           }

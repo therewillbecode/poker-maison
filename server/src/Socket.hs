@@ -201,7 +201,9 @@ updateGame s tableName g = do
 -- We return input source which emits our received socket msgs.
 websocketInMailbox :: MsgHandlerConfig -> IO (Output MsgIn, Output MsgOut)
 websocketInMailbox conf@MsgHandlerConfig {..} = do
-  (writeMsgInSource, readMsgInSource) <- spawn $ newest 1
+    -- newest (1) mailbox msgs aren't consumed when read, latest msg is always in there
+    -- and overwritten on a new msg coming in.
+  (writeMsgInSource, readMsgInSource) <- spawn $ newest 1 
   (writeMsgOutSource, readMsgOutSource) <- spawn $ newest 1
   async $
     forever $

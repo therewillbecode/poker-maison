@@ -144,7 +144,7 @@ handlePlayerTimeout name game@Game {..}
     playerCanCheck = isRight $ canCheck name game
 
 initialGameState :: Deck -> Game
-initialGameState shuffledDeck =
+initialGameState shuffledDeck  =
   Game
     { _players = [],
       _waitlist = [],
