@@ -2,15 +2,21 @@
 
 ## A multiplayer app crafted with Haskell and React
 
-https://news.ycombinator.com/item?id=20653278
+Supports multiple players in realtime on multiple tables.
+
+Player moves are timed in order to ensure that games keep running if players disconnect.
+
+The UI and backend are all implemented in less than seven thousand lines of code.
 
 [![License: Unlicense](https://img.shields.io/badge/license-Unlicense-blue.svg)](http://unlicense.org/)
 
 ![alt text](https://s5.gifyu.com/images/ezgif.com-optimize-1e35dcba1eceb51f5.gif "Demo")
 
-# Get everything running with Docker
+## How to run in docker
 
-### Prerequisites
+Skip this section if you would rather avoid docker.
+
+### Docker Prerequisites
 
 In order to use Docker have the following installed.
 
@@ -135,7 +141,7 @@ Set the env var so that the server has the postgresql connection string.
 Of course you will need to change the db connection parameters below to match your local database.
 
 ```bash
-export dbConnStr='host=0.0.0.0 port=5432 user=tom dbname=pokerdbtest password=tom
+export dbConnStr='host=0.0.0.0 port=5432 user=postgres dbname=pokerdbtest password=postgres
 ```
 
 Set env variable with the secret key for generating auth tokens.
