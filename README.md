@@ -8,7 +8,7 @@ Player moves are timed in order to ensure that games keep running if players dis
 
 The UI and backend are all implemented in less than seven thousand lines of code.
 
-![screenshot](https://camo.githubusercontent.com/2d7e9c6c825f6722c5c50ab1cbbfc2d4c6ca18bd09ae9c0e11cad6b42da564d4/68747470733a2f2f692e696d6775722e636f6d2f6c4f39423664422e706e67)
+![screenshot](https://s11.gifyu.com/images/SgQfh.gif)
 
 
 [![License: Unlicense](https://img.shields.io/badge/license-Unlicense-blue.svg)](http://unlicense.org/)
