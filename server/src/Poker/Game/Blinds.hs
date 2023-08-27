@@ -25,8 +25,6 @@ import Prelude
 -- Gets the player position where the next required blind is
 -- This function always us timeout players in the blinds stage if they don't post
 -- the required blinds in order
---
--- TODO - abstract out the duplication from nextPosToAct
 getPosNextBlind :: Int -> Game -> Int
 getPosNextBlind currIx game@Game {..} = nextIx
   where
@@ -93,9 +91,7 @@ getSmallBlindPosition playersSatIn dealerPos =
 -- If no blind is required for the player to remain In for the next hand then we will return Nothing
 blindRequiredByPlayer :: Game -> PlayerName -> Maybe Blind
 blindRequiredByPlayer game playerName
-  | -- SO IS THIS NEEDED FOR BOTS?? IT BREAKS NON BOTS
-    --  | length (_players game) < 2 || _street game /= PreDeal = NoBlind
-    playerPosition == smallBlindPos =
+  | playerPosition == smallBlindPos =
     Just SmallBlind
   | playerPosition == bigBlindPos = Just BigBlind
   | otherwise = Nothing

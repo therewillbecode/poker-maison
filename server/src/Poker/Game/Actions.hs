@@ -17,9 +17,7 @@ import Poker.Types
 import Text.Read (readMaybe)
 import Prelude
 
--- separately enforce this validation rule has enough chips
---   hasEnoughChips = unChips chips' > betSize
---      betAmount = bool (unChips chips') betSize hasEnoughChips
+
 
 makeBet :: Bool -> Chips -> PlayerName -> Game -> Game
 makeBet isCall betSize pName game@Game {..} =
@@ -67,10 +65,7 @@ nextPlayerStatus _ Timeout playerStatus = playerStatus
 nextPlayerStatus _ SitOut playerStatus = SatOut
 nextPlayerStatus _ _ playerStatus = playerStatus
 
---
---markActed :: Action -> Player -> Player
---markActed action p@Player {..} =
---  p & (playerStatus %~ newPlayerStatus _chips action)
+
 
 updateMaxBet :: Chips -> Game -> Game
 updateMaxBet amount = maxBet %~ max amount
@@ -114,13 +109,12 @@ foldCards pName game@Game {..} =
 
 call :: PlayerName -> Game -> Game
 call pName game@Game {..} =
-  -- hack because i dont know lens
   let game' = makeBet True callAmount pName game
    in game'
         & (currentPosToAct %~ nextPosToAct _players)
           . (pot +~ callAmount)
   where
-    player = fromJust $ find (\Player {..} -> _playerName == pName) _players --horrible performance use map for players
+    player = fromJust $ find (\Player {..} -> _playerName == pName) _players
     callAmount =
       let maxBetShortfall = _maxBet - (player ^. bet)
           playerChips = player ^. chips

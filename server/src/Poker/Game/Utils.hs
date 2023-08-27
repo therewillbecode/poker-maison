@@ -77,9 +77,6 @@ filterSatOutPlayers = filter (\Player {..} -> _playerStatus /= SatOut)
 countActive :: [Player] -> Int
 countActive = length . getActivePlayers
 
---actedThisTurn :: PlayerStatus -> HasActedThisStreet
---actedThisTurn (InHand (CanAct mbLastAction)) = isJust mbLastAction
-
 canAct :: PlayerStatus -> CanPlayerAct
 canAct (InHand (CanAct _)) = PlayerCanAct
 canAct _ = PlayerCannotAct

@@ -123,33 +123,6 @@ setUpTablePipes connStr s name Table {..} = do
     --    botPipes botNames = mapM_ (runBot gameInMailbox gameOutMailbox) botNames
     notFoundErr = error $ "Table " <> show name <> " doesn't exist in DB"
 
-{-
-runBot ::
-  Output Game -> -- bots progress game with action and then push new game state here
-  Input Game -> -- bots subscribe to new game state here then decide whether to act
-  Text ->
-  Consumer Game IO ()
-runBot gameInMailbox gameOutMailbox botName = do
-  g <- await
-  liftIO $ print " "
-  validActions <- liftIO $ getValidBotActions g botName
-  liftIO $ print "+++++ valid actions for: "
-  liftIO $ print botName
-  liftIO $ print validActions
-  liftIO $ print "+++++++++++++++++++++"
-  liftIO $ threadDelay (1 * 1000000) -- delay so can see whats going on
-  randIx <- liftIO $ randomRIO (0, length validActions - 1)
-  let action' = (validActions !! randIx) -- pick rand valid action
-  liftIO $ print "pick action: "
-  liftIO $ print action
-  liftIO $ print " "
-
-  liftIO $ threadDelay (3 * 1000000) -- delay so can see whats going on
-  liftIO $ unless (null validActions) $ act' g action'
-  where
-    act' game action =
-      runEffect $ yield (progressGame action game) >-> toOutput gameInMailbox
--}
 
 getValidBotActions :: Game -> PlayerName -> IO [Action]
 getValidBotActions g@Game {..} name = do
@@ -159,12 +132,6 @@ getValidBotActions g@Game {..} name = do
       pNameActionPairs = zip possibleActions actionsValidated
   return $ (<$>) fst $ filter (isRight . snd) pNameActionPairs
   where
-    --print "++++Valid actions for " <> show name <> "are: "
-    --print validActions
-    --print
-    --when (null validActions) panic
-    --randIx <- randomRIO (0, length validActions - 1)
-    --return $ Just $ PlayerAction {action = validActions !! randIx, ..}
     actions :: Street -> Chips -> [Action]
     actions st chips
       | st == PreDeal = [PostBlind BigBlind, PostBlind SmallBlind, SitDown (initPlayer name 1500)]
@@ -244,7 +211,7 @@ nextStagePause = do
       | _street == PreDeal = 0
       | _street == Showdown =
         5 * 1000000
-      | -- 4 seconds
+      |
         playersNotAllIn _players <= 1 =
         5 * 1000000 -- everyone all in
       | otherwise = 2 * 1000000 -- 1 seconds
@@ -266,14 +233,11 @@ nextStagePause = do
 progress :: Output Game -> Consumer Game IO ()
 progress gameInMailbox = do
   g <- await
-  liftIO $ print "can progress game in pipe?"
-  liftIO $ print $ (canProgressGame g)
   when (canProgressGame g) (progress' g)
   where
     progress' game = do
       gen <- liftIO getStdGen
       liftIO $ setStdGen $ snd $ next gen
-      liftIO $ print "PIPE PROGRESSING GAME"
       runEffect $ yield (progressGame gen game) >-> toOutput gameInMailbox
 
 writeGameToDB :: ConnectionString -> Key TableEntity -> Pipe Game Game IO ()

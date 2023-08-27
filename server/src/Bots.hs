@@ -98,11 +98,8 @@ import Prelude
 delayThenSeatPlayer ::
   ConnectionString -> Int -> TVar ServerState -> Player -> IO ()
 delayThenSeatPlayer dbConn delayDuration s p = do
-  print "delaying before sit down bot ... "
   _ <- threadDelay delayDuration
-  print "about to sit down bot ... "
   sitDownBot dbConn p s
-  print "... done . bot sat down "
 
 bot1 :: Player
 bot1 = initPlayer "1@1" 2000
@@ -122,13 +119,11 @@ bot5 = initPlayer "102@102" 2000
 startBotActionLoops ::
   ConnectionString -> TVar ServerState -> Int -> [PlayerName] -> IO ()
 startBotActionLoops db s playersToWaitFor botNames = do
-  print "ACTION LOOOPS STARTED -------------"
-  threadDelay 2500000 --delay so bots dont start game until all of them sat down
+  threadDelay 2500000 -- 25 second delay so bots dont start game until all of them sat down
   ServerState {..} <- readTVarIO s
   case M.lookup tableName $ unLobby lobby of
     Nothing -> error "TableDoesNotExist "
     Just table@Table {..} -> do
-      print "2 - ACTION LOOP"
       mapM_ (botActionLoop db s gameOutMailbox playersToWaitFor) botNames
   where
     tableName = "Black"
@@ -146,11 +141,6 @@ botActionLoop dbConn s gameOutMailbox playersToWaitFor botName = forkIO $
       fromInput gameOutMailbox
         >-> do
           g <- await
-          liftIO $ print $ "botName:" <> (T.pack $ show botName) <> "received a game state"
-          liftIO $ print g
-          liftIO $ print "can I start a game? "
-          liftIO $ print $ (canStartGame g)
-          liftIO $ print $ show botName <> "can START " <> show (canStartGame g)
           liftIO $
             if (canStartGame g)
               then runBotAction dbConn s g botName
@@ -161,15 +151,12 @@ botActionLoop dbConn s gameOutMailbox playersToWaitFor botName = forkIO $
     actIfNeeded g' pName' =
       let hasToAct = doesPlayerHaveToAct pName' g'
        in when (hasToAct || (isJust $ blindRequiredByPlayer g' pName')) $ do
-            print hasToAct
             runBotAction dbConn s g' pName'
 
 runBotAction ::
   ConnectionString -> TVar ServerState -> Game -> PlayerName -> IO ()
 runBotAction dbConn serverStateTVar g pName = do
   maybeAction <- getValidBotAction g pName
-  print g
-  print ("Random action from " <> show pName <> " is " <> show maybeAction)
   case maybeAction of
     Nothing -> return ()
     Just a -> do
@@ -214,10 +201,8 @@ getValidBotAction g@Game {..} name
     let possibleActions = actions _street $ unChips betAmount'
     let actionsValidated = validateAction g name <$> possibleActions
     let pNameActionPairs = zip possibleActions actionsValidated
-    print pNameActionPairs
     let validActions = (<$>) fst $ filter (isRight . snd) pNameActionPairs
-    print validActions
-    when (null validActions) panic
+    when (null validActions) (print g)
     randIx <- randomRIO (0, length validActions - 1)
     return $ Just $ PlayerAction {action = validActions !! randIx, ..}
   where
@@ -227,7 +212,3 @@ getValidBotAction g@Game {..} name
       | otherwise = [Check, Call, Fold, Bet $ Chips chips, Raise $ Chips chips]
     lowerBetBound = if (_maxBet > 0) then 2 * _maxBet else Chips _bigBlind
     chipCount = maybe 0 (^. chips) (getGamePlayer g name)
-    panic = do
-      print $ "UHOH no valid actions for " <> show name
-      print g
-      error $ "UHOH no valid actions"

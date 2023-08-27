@@ -1,8 +1,8 @@
 # Poker Maison
 
-## A multiplayer app crafted with Haskell and React
+## A poker app crafted with Haskell and React
 
-Supports multiple players in realtime on multiple tables.
+Supports games across multiple tables in realtime.
 
 Player moves are timed in order to ensure that games keep running if players disconnect.
 

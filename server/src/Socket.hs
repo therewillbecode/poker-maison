@@ -168,16 +168,8 @@ runSocketServer secretKey port connString redisConfig = do
           connString
           redisConfig
           serverStateTVar
-  -- _ <- async $ delayThenSeatPlayer connString (sec * 8) serverStateTVar bot1
-  -- _ <- async $ delayThenSeatPlayer connString (sec * 9) serverStateTVar bot2
-  -- --_ <- forkIO $ delayThenSeatPlayer connString 3000000 serverStateTVar bot3
-  -- -- _ <- forkIO $ delayThenSeatPlayer connString 3000000 serverStateTVar bot4
-  -- -- _ <- forkIO $ delayThenSeatPlayer connString 3000000 serverStateTVar bot5
-  -- --threadDelay (sec * 8) --delay so bots dont start game until all of them sat down
-  -- _ <- async $ startBotActionLoops connString serverStateTVar playersToWaitFor botNames
   return ()
   where
-    sec = 1000000
     botNames = (^. playerName) <$> [bot1]
     playersToWaitFor = 2
 
@@ -239,9 +231,6 @@ socketMsgOutWriter conn is =
 socketReader :: WS.Connection -> Producer BS.ByteString IO ()
 socketReader conn = forever $ do
   msg <- liftIO $ WS.receiveData conn
-  liftIO $ print "oooooooooo Pipes Produced msg from Connection ooooooooooo"
-  liftIO $ print msg
-  liftIO $ print "ooooooooooooooooooooooooooooooooooooooooooooooooooooooooo"
   yield msg
 
 -- Convert a raw Bytestring producer of raw JSON into a new producer which yields
@@ -255,22 +244,15 @@ msgInDecoder rawMsgProducer = do
   case x of
     Nothing -> return ()
     Just (Left a) -> do
-      (x, p'') <- lift $ runStateT draw p'
-      -- lift $ print "left err"
-      -- lift $ print x
-      -- x is the problem input msg which failed to parse. We ignore it here by just resuming
+      (_invalidMsg, p'') <- lift $ runStateT draw p'
       msgInDecoder p''
-    Just c@(Right msgIn) -> do
-      -- successful parsing case
-      --   lift $ print c
-      yield msgIn
+    Just c@(Right parsedMsgIn) -> do
+      yield parsedMsgIn
       msgInDecoder p'
 
 msgOutEncoder :: Pipe MsgOut Text IO ()
 msgOutEncoder = do
   msgOut <- await
-  -- lift $ print "encoding msg: "
-  -- lift $ print msgOut
   yield $ encodeMsgToJSON msgOut
 
 -- branches of code which do not yield messages place the burden of informing the client
@@ -285,18 +267,6 @@ msgInHandler conf@MsgHandlerConfig {..} = do
     Left err -> yield $ ErrMsg err
     Right (NewGameState tableName g) ->
       liftIO $ atomically $ updateGameState serverStateTVar tableName g
-    --  --     liftIO $ atomically $ updateTable' serverStateTVar tableName g
-    --   mb liftIO $
-    --        atomically $ updateGame serverStateTVar tableName g
-    --   case mbGameInMailbox' of
-    --     Nothing -> return ()
-    --     Just gameInMailbox' -> do
-    --       liftIO $ threadDelay 1500000
-    --       liftIO $ atomically $ send gameInMailbox' g
-    --       return ()
-    --       -- liftIO $ runEffect $ yield g >-> toOutput gameInMailbox'
-    --   --liftIO $ toGameInMailbox serverStateTVar tableName g
-    --  -- return ()
     Right m -> yield m
 
 -- The main function for handling game updates which consists of
@@ -314,44 +284,16 @@ updateGameState serverStateTVar tableName newGame = do
     Nothing -> return ()
     Just gameInMailbox' -> void (send gameInMailbox' newGame)
 
--- -- Lookups up a table with the given name and writes the new game state
--- -- to the gameIn mailbox for propagation to observers.
--- --
--- -- If table with tableName is not found in the serverState lobby
--- -- then we just return () and do nothing.
--- toGameInMailbox :: TVar ServerState -> TableName -> Game -> IO ()
--- toGameInMailbox s name game = do
---   table' <- atomically $ getTable s name
---   forM_ table' send
---   where send Table {..} =
---     runEffect $ yield game >-> toOutput gameInMailbox
 logMsgIn :: Pipe BS.ByteString BS.ByteString IO ()
 logMsgIn = do
   msg <- await
-  lift $ putStrLn "logging MsgIn"
-  liftIO $ print msg
   yield msg
-
---case x of
---    -- Gracefully terminate if we got a broken pipe error
---  Left e@G.IOError { G.ioe_type = t } ->
---    lift $ unless (t == G.ResourceVanished) $ throwIO e
---  -- Otherwise loop
---  Right () -> yield msg >> logMsgIn
 
 logMsgOut :: Pipe MsgOut MsgOut IO ()
 logMsgOut = do
   msg <- await
-  --lift $ putStrLn "logging MsgOut"
-  --print msg
   yield msg
 
--- case x of
---     -- Gracefully terminate if we got a broken pipe error
---   Left e@G.IOError { G.ioe_type = t } ->
---     lift $ unless (t == G.ResourceVanished) $ throwIO e
---   -- Otherwise loop
---   Right () -> yield msg >> logMsgOut
 
 -- get a pipe which only forwards the game moves which occur at the given table
 filterMsgsForTable :: Monad m => TableName -> Pipe GameMsgIn GameMsgIn m ()
@@ -389,19 +331,11 @@ application secretKey dbConnString redisConfig s pending = do
       let client = Client {..}
       sendMsg conn AuthSuccess
       let isReconnect = client `elem` clients -- if client already on our list of clients then this is a reconnect
-      --when isReconnect $ do
       updateWithLatestGames client lobby -- Sync game state with reconnected clients
       let tableSummaries = TableList $ summariseTables lobby
-      --   liftIO $ print tableSummaries
       liftIO $ sendMsg conn tableSummaries
       atomically $ addClient s client
       ServerState {..} <- liftIO $ atomically $ readTVar s
-      liftIO $ print ""
-      liftIO $ print "[[[[[[[[[[[[[[[[[[[[[[[[[[[["
-      liftIO $ print $ T.pack "New Connection " <> clientUsername
-      liftIO $ print clients
-      liftIO $ print "[[[[[[[[[[[[[[[[[[[[[[[[[[[["
-      liftIO $ print ""
       forever $ do
         m <- WS.receiveData conn
         runEffect $

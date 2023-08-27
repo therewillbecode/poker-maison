@@ -67,9 +67,6 @@ canProgressGame game@Game {..}
 progressGame :: RandomGen g => g -> Game -> Game
 progressGame gen = updatePlayersPossibleActions . nextStage gen
 
--- | Just get the identity function if not all players acted otherwise we return
--- the function necessary to progress the game to the next stage.
--- toDO - make function pure by taking stdGen as an arg
 nextStage :: RandomGen g => g -> Game -> Game
 nextStage gen game@Game {..}
   | _street == Showdown =
@@ -111,10 +108,7 @@ handlePlayerAction game@Game {..} PlayerAction {..} = case action of
   LeaveSeat' -> validateAction game name action $> leaveSeat name game
   Timeout -> handlePlayerTimeout name game
 
--- TODO - "Except" or ExceptT Identity has a more reliable Alternative instance.
--- Use except and remove the guards and just use <|> to combine all the
--- eithers and return the first right. I.e try each action in turn and return the first
--- valid action.
+
 handlePlayerTimeout :: PlayerName -> Game -> Either GameErr Game
 handlePlayerTimeout name game@Game {..}
   | playerCanCheck && handStarted =

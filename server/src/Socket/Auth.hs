@@ -1,11 +1,4 @@
 {-# LANGUAGE OverloadedStrings #-}
-{-
-  Unfortunately jwtSettingsToJwtValidationSettings is directly
-  the servant-auth library internals the JWT is signed by the User API
-  when a user registers or logs in so essentially this file has
-  to currently duplicate the token verification logic that the servant-auth
-  library hides internally so we can suthenticate socket connections
--}
 {-# LANGUAGE RecordWildCards #-}
 
 module Socket.Auth where

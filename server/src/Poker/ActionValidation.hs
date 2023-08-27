@@ -31,8 +31,7 @@ import Poker.Game.Utils
   )
 import Poker.Types
 
--- TODO remove sitdowm from playerMoves and then
--- can use  checkPlayerSatAtTable on validateAction
+
 validateAction :: Game -> PlayerName -> Action -> Either GameErr ()
 validateAction game@Game {..} name' = \case
   PostBlind blind ->
