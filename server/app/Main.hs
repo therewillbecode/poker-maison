@@ -8,7 +8,7 @@ import           Data.Text.Encoding            as TSE
 import           Database.Redis                 ( defaultConnectInfo )
 import           Network.Wai.Handler.Warp
 import           Prelude
-import qualified System.Remote.Monitoring      as EKG
+--import qualified System.Remote.Monitoring      as EKG
 
 import qualified Data.ByteString.Lazy.Char8    as C
 
@@ -27,7 +27,6 @@ main = do
   userAPIPort   <- getAuthAPIPort defaultUserAPIPort
   socketAPIPort <- getSocketAPIPort defaultSocketAPIPort
   
-  -- todo delete me
   redisConfig   <- getRedisHostFromEnv defaultRedisHost
 
   secretKey <- getSecretKey
@@ -37,14 +36,14 @@ main = do
       settings = setPort userAPIPort (setHost "0.0.0.0" defaultSettings)
 
   migrateDB dbConnString
-  ekg <- runMonitoringServer
+  --ekg <- runMonitoringServer
   concurrently (runSettings settings app') runSocketAPI
  where
-  defaultUserAPIPort             = 8000
+  defaultUserAPIPort             = 3000
   defaultSocketAPIPort           = 5000
   defaultRedisHost               = "localhost"
   defaultMonitoringServerAddress = "localhost"
   defaultMonitoringServerPort    = 9999
-  runMonitoringServer =
-    EKG.forkServer defaultMonitoringServerAddress defaultMonitoringServerPort
+ -- runMonitoringServer =
+ --   EKG.forkServer defaultMonitoringServerAddress defaultMonitoringServerPort
 

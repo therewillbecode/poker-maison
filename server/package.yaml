@@ -22,7 +22,7 @@ dependencies:
   - comonad
   - free
   - hedis
-  - ekg
+ # - ekg
   - containers
   - cryptohash
   - hashable

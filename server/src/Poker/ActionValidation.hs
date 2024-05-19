@@ -1,7 +1,3 @@
---  TODO - should factor out the hasEnoughChips check for each action and then just sequence it
---  inside the parent validateAction function with >>
---
--- Second TODo - remove use of fromJust
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
@@ -43,8 +39,6 @@ import Poker.Types
     Winners (MultiPlayerShowdown, SinglePlayerShowdown),
   )
 
--- TODO remove sitdowm from playerMoves and then
--- can use  checkPlayerSatAtTable on validateAction
 validateAction :: Game -> PlayerName -> Action -> Either GameErr ()
 validateAction game@Game {..} name' = \case
   PostBlind blind ->

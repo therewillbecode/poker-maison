@@ -72,7 +72,6 @@ joinTableWaitlist username Table {..} =
 insertTable :: TableName -> Table -> Lobby -> Lobby
 insertTable tableName newTable = Lobby . (at tableName ?~ newTable) . unLobby
 
--- to do - return an either as there are multiple errs for why plyr cant join game ie no chips
 canJoinGame :: Game -> Bool
 canJoinGame Game {..} = length _players < _maxPlayers
 

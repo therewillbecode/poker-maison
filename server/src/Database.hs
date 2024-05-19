@@ -156,10 +156,6 @@ dbGetUserByLogin connString Login {..} = do
 fetchUserByEmail ::
   ConnectionString -> RedisConfig -> Text -> IO (Maybe UserEntity)
 fetchUserByEmail connString redisConfig email = do
-  --maybeCachedUser <- liftIO $ redisFetchUserByEmail redisConfig email
-  --case maybeCachedUser of
-  --  Just userE -> return $ Just userE
-  --  Nothing ->
   dbGetUserByEmail connString email
 
 -------  Redis  --------

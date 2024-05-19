@@ -5,57 +5,29 @@
 
 packages:
 - completed:
+    hackage: pipes-aeson-0.4.1.8@sha256:e3661fa8ae4f95e30e471082c2c75767f198f7df7a15dc0ab513a09961453192,1411
+    pantry-tree:
+      sha256: 717bf18325908156b8682546ed06aee40757f300a413d2f88477f06fe369fbb0
+      size: 497
+  original:
+    hackage: pipes-aeson-0.4.1.8@sha256:e3661fa8ae4f95e30e471082c2c75767f198f7df7a15dc0ab513a09961453192,1411
+- completed:
+    hackage: servant-auth-server-0.4.6.0@sha256:dc376c76780259cb8d4850179bb456c3fcd057a97c62e260214b7111b4755a45,5254
+    pantry-tree:
+      sha256: 7fad68f290c5933e88bf6ed0da2b4cdcd6b9a43fdf71dea571c0dee0ace51da8
+      size: 1376
+  original:
+    hackage: servant-auth-server-0.4.6.0@sha256:dc376c76780259cb8d4850179bb456c3fcd057a97c62e260214b7111b4755a45,5254
+- completed:
     hackage: servant-options-0.1.0.0@sha256:39f50166a68006250e79370372f553ca476f14d06d93fa0c401050253aeba803,914
     pantry-tree:
-      size: 293
       sha256: 7812baf1b27c62068ba634207fbd7077b886424d666b36739a78c6d4008a1fd4
+      size: 293
   original:
-    hackage: servant-options-0.1.0.0
-- completed:
-    hackage: jwt-0.7.2@sha256:b5858c05476741b4dc7f9f075bb8c8aca128ed25a9f325d937d370aa3d4910e1,4073
-    pantry-tree:
-      size: 978
-      sha256: 8e5b90fe8051580276d073ec028eeb2073f993c42ed9db040d73261978687a0b
-  original:
-    hackage: jwt-0.7.2
-- completed:
-    hackage: servant-websockets-2.0.0@sha256:6e9e3600bced90fd52ed3d1bf632205cb21479075b20d6637153cc4567000234,2253
-    pantry-tree:
-      size: 523
-      sha256: 085c6620bff7671bef1d969652a349271c3703fbf10dd753cb63ee1cd700bca5
-  original:
-    hackage: servant-websockets-2.0.0@sha256:6e9e3600bced90fd52ed3d1bf632205cb21479075b20d6637153cc4567000234,2253
-- completed:
-    hackage: servant-auth-client-0.4.1.0@sha256:96d8153907a00ef05e8918ca03a972d95ecde485da0df12f6532d248f057eb60,3437
-    pantry-tree:
-      size: 480
-      sha256: 1d87e9ef405be1b7b728dfd9058ef79220398633b36996c7ff363278ed7ab459
-  original:
-    hackage: servant-auth-client-0.4.1.0@sha256:96d8153907a00ef05e8918ca03a972d95ecde485da0df12f6532d248f057eb60,3437
-- completed:
-    hackage: ekg-0.4.0.15@sha256:d6e48859a89fbbe23496f871581e44a41f97dac627c2b9db81f49b92fa066516,2031
-    pantry-tree:
-      size: 1495
-      sha256: e56e9c0eadc309a27400af106a2d3133d70ad0a3bbbb9be2c54e837ccdb4a77d
-  original:
-    hackage: ekg-0.4.0.15@sha256:d6e48859a89fbbe23496f871581e44a41f97dac627c2b9db81f49b92fa066516,2031
-- completed:
-    hackage: ekg-core-0.1.1.7@sha256:c4356aefea0e1e2f80a236d3b3f81b83b445c1e53519302e96477da0adee2e9f,2039
-    pantry-tree:
-      size: 1073
-      sha256: f403baeb7787c69c5e28f5aa1e94f78d4363beb19362d66f18de4a1aef0723fe
-  original:
-    hackage: ekg-core-0.1.1.7@sha256:c4356aefea0e1e2f80a236d3b3f81b83b445c1e53519302e96477da0adee2e9f,2039
-- completed:
-    hackage: ekg-json-0.1.0.6@sha256:e16efc1b09ae7635db3f0535335ee3e8aa666fe4bf3749783f4022020f6ca3b8,1050
-    pantry-tree:
-      size: 265
-      sha256: 09239a4e3ab0d58be0ac360d41c491df017f4a18ba558fd67909e24f14caece7
-  original:
-    hackage: ekg-json-0.1.0.6@sha256:e16efc1b09ae7635db3f0535335ee3e8aa666fe4bf3749783f4022020f6ca3b8,1050
+    hackage: servant-options-0.1.0.0@sha256:39f50166a68006250e79370372f553ca476f14d06d93fa0c401050253aeba803,914
 snapshots:
 - completed:
-    size: 586268
-    url: https://raw.githubusercontent.com/commercialhaskell/stackage-snapshots/master/lts/18/13.yaml
-    sha256: d9e658a22cfe8d87a64fdf219885f942fef5fe2bcb156a9800174911c5da2443
-  original: lts-18.13
+    sha256: 401a0e813162ba62f04517f60c7d25e93a0f867f94a902421ebf07d1fb5a8c46
+    size: 650044
+    url: https://raw.githubusercontent.com/commercialhaskell/stackage-snapshots/master/lts/20/21.yaml
+  original: lts-20.21

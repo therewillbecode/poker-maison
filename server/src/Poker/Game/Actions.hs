@@ -138,7 +138,7 @@ sitOut plyrName =
             then Player {_playerState = SatOut, _actedThisTurn = True, ..}
             else p
       )
-
+      
 sitIn :: PlayerName -> Game -> Game
 sitIn plyrName =
   players

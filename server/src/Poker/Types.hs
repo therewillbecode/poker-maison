@@ -140,7 +140,7 @@ unPlayerShowdownHand (PlayerShowdownHand cards) = cards
 data Winners
   = MultiPlayerShowdown [((HandRank, PlayerShowdownHand), PlayerName)]
   | SinglePlayerShowdown PlayerName -- occurs when everyone folds to one player
-  | NoWinners -- todo - remove this and wrap whole type in a Maybe
+  | NoWinners
   deriving (Show, Eq, Read, Ord, Generic, ToJSON, FromJSON)
 
 newtype Deck
@@ -168,7 +168,6 @@ data Game = Game
     _currentPosToAct :: Maybe Int -- If Nothing and not PreDeal stage of game then this signifies that
     -- no  player can act (i.e everyone all in) or
     -- if during PreDeal (blinds stage) any player can act first in order to get the game started
-    -- TODO refactor this logic into ADT such as  Nobody | Anyone | Someone PlayerName PlayerPos
   }
   deriving (Eq, Read, Ord, Generic, ToJSON, FromJSON)
 
@@ -252,7 +251,6 @@ data GameErr
       InvalidMoveErr
   deriving (Show, Eq, Read, Ord, Generic, ToJSON, FromJSON)
 
--- ToDO -- ONLY ONE ERR MSG FOR EACH POSSIBLE ACTION
 --
 -- additional text field for more detailed info
 --

@@ -92,7 +92,6 @@ signToken jwtSettings username' = do
 
 loginHandler :: JWTSettings -> ConnectionString -> Login -> Handler ReturnToken
 loginHandler jwtSettings connString l@Login {..} = do
-  liftIO (print l)
   maybeUser <- liftIO $ dbGetUserByLogin connString loginWithHashedPswd
   case maybeUser of
     Nothing -> throwError unAuthErr

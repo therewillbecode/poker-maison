@@ -12,7 +12,7 @@
 #
 # resolver: ./custom-snapshot.yaml
 # resolver: https://example.com/snapshots/2018-01-01.yaml
-resolver: lts-18.13
+resolver: lts-20.21
 
 # User packages to be built.
 # Various formats can be used as shown in the example below.
@@ -29,19 +29,25 @@ resolver: lts-18.13
 #  - wai
 packages:
   - .
+
 allow-newer: true
 extra-deps:
-  - servant-options-0.1.0.0
-  - jwt-0.7.2
-  - servant-websockets-2.0.0@sha256:6e9e3600bced90fd52ed3d1bf632205cb21479075b20d6637153cc4567000234,2253
-  - servant-auth-client-0.4.1.0@sha256:96d8153907a00ef05e8918ca03a972d95ecde485da0df12f6532d248f057eb60,3437
-  - ekg-0.4.0.15@sha256:d6e48859a89fbbe23496f871581e44a41f97dac627c2b9db81f49b92fa066516,2031
-  - ekg-core-0.1.1.7@sha256:c4356aefea0e1e2f80a236d3b3f81b83b445c1e53519302e96477da0adee2e9f,2039
-  - ekg-json-0.1.0.6@sha256:e16efc1b09ae7635db3f0535335ee3e8aa666fe4bf3749783f4022020f6ca3b8,1050
+  - pipes-aeson-0.4.1.8@sha256:e3661fa8ae4f95e30e471082c2c75767f198f7df7a15dc0ab513a09961453192,1411
+  - servant-auth-server-0.4.6.0@sha256:dc376c76780259cb8d4850179bb456c3fcd057a97c62e260214b7111b4755a45,5254
+  - servant-options-0.1.0.0@sha256:39f50166a68006250e79370372f553ca476f14d06d93fa0c401050253aeba803,914
+#  - pipes-aeson-0.4.1.8@sha256:e3661fa8ae4f95e30e471082c2c75767f198f7df7a15dc0ab513a09961453192,1411
+#  - servant-options-0.1.0.0@sha256:39f50166a68006250e79370372f553ca476f14d06d93fa0c401050253aeba803,914
+#  - servant-options-0.1.0.0
+#  - jwt-0.7.2
+#  - servant-websockets-2.0.0@sha256:6e9e3600bced90fd52ed3d1bf632205cb21479075b20d6637153cc4567000234,2253
+#  - servant-auth-client-0.4.1.0@sha256:96d8153907a00ef05e8918ca03a972d95ecde485da0df12f6532d248f057eb60,3437
+#  - ekg-0.4.0.15@sha256:d6e48859a89fbbe23496f871581e44a41f97dac627c2b9db81f49b92fa066516,2031
+#  - ekg-core-0.1.1.7@sha256:c4356aefea0e1e2f80a236d3b3f81b83b445c1e53519302e96477da0adee2e9f,2039
+#  - ekg-json-0.1.0.6@sha256:e16efc1b09ae7635db3f0535335ee3e8aa666fe4bf3749783f4022020f6ca3b8,1050
 
 
 nix:
-  enable: false
+  enable: true
   pure: false
   packages: [ postgresql zlib ]
 

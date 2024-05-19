@@ -9,6 +9,8 @@ import Control.Lens (Field2 (_2), (%~), (&), (.~), (?~), (^.))
 import Data.List (find, mapAccumR)
 import qualified Data.List.Safe as Safe
 import Data.Maybe (fromJust, isNothing)
+import Debug.Trace
+
 import Data.Text (Text)
 import Poker.Game.Blinds
   ( blindRequiredByPlayer,
@@ -213,16 +215,12 @@ canPubliciseActivesCards g =
     multiplayerShowdown =
       _street g == Showdown && isMultiPlayerShowdown (_winners g)
 
--- TODO move players from waitlist to players list
--- TODO need to send msg to players on waitlist when a seat frees up to inform them
--- to choose a seat and set limit for them t pick one
--- TODO - have newBlindNeeded field which new players will initially be put into in order to
 -- ensure they cant play without posting a blind before the blind position comes round to them
 -- new players can of course post their blinds early. In the case of an early posting the initial
 -- blind must be the big blind. After this 'early' blind or the posting of a normal blind in turn the
 -- new player will be removed from the newBlindNeeded field and can play normally.
-getNextHand :: Game -> Deck -> Game
-getNextHand Game {..} shuffledDeck =
+getNextHand :: Game -> Bool -> Deck -> Game
+getNextHand g@Game {..} newGame shuffledDeck =
   Game
     { _waitlist = newWaitlist,
       _maxBet = 0,
@@ -231,9 +229,14 @@ getNextHand Game {..} shuffledDeck =
       _deck = shuffledDeck,
       _winners = NoWinners,
       _street = PreDeal,
-      _dealer = newDealer,
+      _dealer =  if _currentPosToAct == Nothing && (not $ haveRequiredBlindsBeenPosted g) 
+          then _dealer -- New game proposal not accted so for next hand no game is underway
+          else newDealer, -- Game is underway 
       _pot = 0,
-      _currentPosToAct = Just nextPlayerToAct,
+      _currentPosToAct = if newGame then Nothing else
+        if _currentPosToAct == Nothing && (not $ haveRequiredBlindsBeenPosted g) 
+          then Nothing -- New game proposal not accted so for next hand no game is underway
+          else Just nextPlayerToAct, -- Game is underway
       ..
     }
   where

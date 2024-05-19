@@ -3,7 +3,7 @@ import axios from 'axios'
 import * as types from './types'
 
 /* Action Creators for User API authentication */
-const AUTH_API_URL = 'https://tenpoker.co.uk'
+const AUTH_API_URL = 'http://localhost:3000'
 //process.env.NODE_ENV === 'production' ? 'https://tenpoker.co.uk' : 'http://localhost:8000'
 
 export const getProfileRequest = () => ({ type: types.GET_PROFILE_REQUEST })

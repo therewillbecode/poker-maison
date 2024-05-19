@@ -79,6 +79,7 @@ import Poker.Game.Utils
   )
 import Poker.Poker
   ( canProgressGame,
+  nextStage,
     progressGame,
     runPlayerAction,
   )
@@ -125,41 +126,30 @@ setUpTablePipes connStr s name Table {..} = do
           gameOutMailbox
           gameInMailbox)
   where
- --   botPipes :: [Text] -> Effect IO ()
- --   botPipes botNames = mapM_ (runBot gameInMailbox gameOutMailbox) botNames
     notFoundErr = error $ "Table " <> show name <> " doesn't exist in DB"
 
 
 
 runBot ::
   Output Game -> -- bots progress game with action and then push new game state here
---  Input Game -> -- bots subscribe to new game state here then decide whether to act
   Text ->
   Pipe Game Game IO ()
 runBot gameInMailbox
--- gameOutMailbox
   botName = do
     g <- await
-    liftIO $ print "new game recvd"
-    liftIO $ print g
     validActions <- liftIO $ getValidBotActions g botName
     if null validActions then return () else takeAction g validActions
     yield g
 
     where 
       takeAction g validActions' = do 
-         liftIO $ print $ "0+++++++++++++" <> botName <> "++++++++++++"
-         liftIO $ print $ botName <> " - valid actions : " <> (T.pack $ show validActions')
          liftIO $ threadDelay (1 * 1000000) -- delay so can see whats going on
 
          randIx <- liftIO $ randomRIO (0, length validActions' - 1)
-         let action' = (validActions' !! randIx) -- pick rand valid action
-         liftIO $ print $ "picked action: " <> (T.pack $ show action')
-         liftIO $ print $ "++++++++++++++" <> botName <> "++++++++++++"
-         liftIO $ threadDelay (1 * 1000000) -- delay so can see whats going on
+         let action' = validActions' !! randIx
          liftIO $ act' botName g action'
 
-      act' :: Text -> Game -> Action -> IO () --(Maybe Game)
+      act' :: Text -> Game -> Action -> IO ()
       act' botName  g a = do
         let botAction = PlayerAction {name = botName, action = a}
         let eitherNewGame = runPlayerAction g botAction
@@ -169,12 +159,6 @@ runBot gameInMailbox
             print  gameErr
             return ()
           Right newGame -> runEffect $ yield newGame >-> toOutput gameInMailbox
-         --   do
-         -- gen <- newStdGen
-         -- let progressedGame = progressGame gen g
-         -- liftIO $ print "new game in bot loop"
-         -- liftIO $ print progressedGame
-      
 
 
 getValidBotActions :: Game -> PlayerName -> IO [Action]
@@ -185,12 +169,6 @@ getValidBotActions g@Game {..} name = do
       pNameActionPairs = zip possibleActions actionsValidated
   return $ (<$>) fst $ filter (isRight . snd) pNameActionPairs
   where
-    --print "++++Valid actions for " <> show name <> "are: "
-    --print validActions
-    --print
-    --when (null validActions) panic
-    --randIx <- randomRIO (0, length validActions - 1)
-    --return $ Just $ PlayerAction {action = validActions !! randIx, ..}
     actions :: Street -> Int -> [Action]
     actions st chips
       | st == PreDeal = [PostBlind Big, PostBlind Small, SitDown (initPlayer name 1500)]
@@ -223,37 +201,9 @@ gamePipeline connStr s key tableName outMailbox inMailbox = do
     >-> writeGameToDB connStr key
     >-> nextStagePause
     >-> timePlayer s tableName
-
     >-> runBot inMailbox "bot1"
-
-
     >-> progress inMailbox -- new gamestates go in this output source
 
-
-  --async $ forever $ runEffect $ fromInput gameOutMailbox >-> runBot gameInMailbox "bot1"
---
-  -- -- broadcast new game to connected websocket clients who subscribed
-  --async $ forever $ runEffect $ fromInput gameOutMailbox >-> broadcast s name
-
-   -- bots action loop
-
-
--- TODO - BROADCASTING SHOULDN@T BE IN GAME pipeline but should be a consumer that listens to
--- gameInMailbox 
---
--- Because otherwise only player actions get broadcast and not bot getValidBotActions
--- 
--- benefit is that then we can take broadcast out of the game pipeline and put the whole 
--- gamePipeline in STM!!!
-
-
---  threadDelay (7 * 1000000) -- delay so can see whats going on
-
-
-
-
-
--- TODO should group as manny effect in stm monad not IO -- perhaps
 
 -- Delay to enhance UX based on game stages
 timePlayer :: TVar ServerState -> TableName -> Pipe Game Game IO ()
@@ -297,11 +247,11 @@ nextStagePause = do
     pauseDuration g@Game {..}
       | _street == PreDeal = 0
       | _street == Showdown =
-        5 * 1000000
+        1 * 1000000
       | -- 4 seconds
         countPlayersNotAllIn g <= 1 =
-        5 * 1000000 -- everyone all in
-      | otherwise = 2 * 1000000 -- 1 seconds
+        1 * 1000000 -- everyone all in
+      | otherwise = 1 * 1000000 -- 1 seconds
 
 -- Progresses to the next state which awaits a player action.
 --
@@ -319,16 +269,14 @@ nextStagePause = do
 -- the previous game state just went through.
 progress :: Output Game -> Consumer Game IO ()
 progress gameInMailbox = do
-  liftIO $ print "new game in PROR"
   g <- await
-  --liftIO $ print "can progress game in pipe?"
-  --liftIO $ print $ canProgressGame g
   when (canProgressGame g) (progress' g)
+  -- <- liftIO getStdGen
+  --liftIO $ print ("can progress the game to the next: " <> (show (progressGame gen g)))
   where
     progress' game = do
       gen <- liftIO getStdGen
       liftIO $ setStdGen $ snd $ next gen
-   --   liftIO $ print "PIPE PROGRESSING GAME"
       runEffect $ yield (progressGame gen game) >-> toOutput gameInMailbox
 
 writeGameToDB :: ConnectionString -> Key TableEntity -> Pipe Game Game IO ()
@@ -350,7 +298,6 @@ informSubscriber n g Client {..} = do
 -- At the moment all clients receive updates from every game indiscriminately
 broadcast :: TVar ServerState -> TableName -> Pipe Game Game IO ()
 broadcast s n = do
-  liftIO $ print  "Broadcasting"
   g <- await
   ServerState {..} <- liftIO $ readTVarIO s
   let usernames' = M.keys clients -- usernames to broadcast to
@@ -362,8 +309,9 @@ broadcast s n = do
 logGame :: TableName -> Pipe Game Game IO ()
 logGame tableName = do
   g <- await
-  liftIO $ print "its happenging"
- -- liftIO $ print g
+  gen <- newStdGen
+  --liftIO $ print g
+  --liftIO $ print $ "next stage: " <> show (nextStage gen g)
   yield g
 
 -- Lookups up a table with the given name and writes the new game state
@@ -380,7 +328,7 @@ toGameInMailbox s name game = do
 
 -- Get a combined outgoing mailbox for a group of clients who are observing a table
 --
--- Here we monoidally combined so we then have one mailbox
+-- Here we monoidaly combined so we then have one mailbox
 -- we use to broadcast new game states to which will be sent out to each client's
 -- socket connection under the hood
 combineOutMailboxes :: [Client] -> Consumer MsgOut IO ()

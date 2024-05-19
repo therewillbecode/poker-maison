@@ -11,11 +11,12 @@ module Poker.Poker
     progressGame,
     canProgressGame,
     runPlayerAction,
+    nextStage,
     handlePlayerTimeout,
     getAllValidPlayerActions,
   )
 where
-
+import Debug.Trace
 import Control.Lens ((^.))
 import Data.Either (isRight)
 import Data.Functor (($>))
@@ -53,10 +54,12 @@ import Poker.Types
     PlayerName,
     Street (..),
     Winners (NoWinners),
+    PlayerState(..),
     chips,
   )
 import System.Random (RandomGen)
 import Text.Pretty.Simple (pPrint)
+import GHC.Base (Bool(True))
 
 -- the function takes a player action and returns either a new game for a valid
 -- player action or an err signifying an invalid player action with the reason why
@@ -68,11 +71,15 @@ runPlayerAction game playerAction'@PlayerAction {..} =
 
 canProgressGame :: Game -> Bool
 canProgressGame game@Game {..}
+  | sshouldResetGame  = True
   | length _players < 2 = False
   | _street == Showdown = True
   | _street == PreDeal && haveRequiredBlindsBeenPosted game = True
   | _street == PreDeal && haveAllPlayersActed game = True
   | otherwise = haveAllPlayersActed game
+  where 
+    sshouldResetGame = blindsCannotProgress game
+
 
 -- when no player action is possible we can can call this function to get the game
 -- to the next stage.
@@ -85,13 +92,12 @@ progressGame gen = updatePlayersPossibleActions . nextStage gen
 
 -- | Just get the identity function if not all players acted otherwise we return
 -- the function necessary to progress the game to the next stage.
--- toDO - make function pure by taking stdGen as an arg
 nextStage :: RandomGen g => g -> Game -> Game
 nextStage gen game@Game {..}
   | _street == Showdown =
-    nextHand
+    nextHand False
   | notEnoughPlayersToStartGame =
-    nextHand
+     nextHand True
   | haveAllPlayersActed game
       && ( not (allButOneFolded game)
              || (_street == PreDeal || _street == Showdown)
@@ -102,16 +108,29 @@ nextStage gen game@Game {..}
       Turn -> progressToTurn game
       River -> progressToRiver game
       Showdown -> progressToShowdown game
-      PreDeal -> nextHand
+      PreDeal -> nextHand False
   | allButOneFolded game && _street /= Showdown =
-    progressToShowdown game
+      progressToShowdown game
+  | shouldResetGame = nextHand True
   | otherwise =
-    game
+      game
   where
-    nextHand = getNextHand game (shuffledDeck gen)
+    nextHand  newGame = getNextHand game newGame (shuffledDeck gen)
     numberPlayersSatIn = length $ getActivePlayers _players
+    shouldResetGame =  blindsCannotProgress game
     notEnoughPlayersToStartGame =
-      _street == PreDeal && haveAllPlayersActed game && numberPlayersSatIn < 2
+            _street == PreDeal && haveAllPlayersActed game && numberPlayersSatIn < 2
+
+-- is true if first blind posted but then all remaining players who could post the next
+-- blind sat out.
+blindsCannotProgress :: Game -> Bool
+blindsCannotProgress game@Game {..}
+  | blindsPosted && (activePlayerCount < 2) = True
+  | otherwise = False
+  where 
+    blindsPosted = _pot > 0 && _street == PreDeal
+    activePlayerCount = length $ filter (\Player {..} -> _playerState /= SatOut ) _players
+
 
 handlePlayerAction :: Game -> PlayerAction -> Either GameErr Game
 handlePlayerAction game@Game {..} PlayerAction {..} = case action of
@@ -127,10 +146,7 @@ handlePlayerAction game@Game {..} PlayerAction {..} = case action of
   LeaveSeat' -> validateAction game name action $> leaveSeat name game
   Timeout -> handlePlayerTimeout name game
 
--- TODO - "Except" or ExceptT Identity has a more reliable Alternative instance.
--- Use except and remove the guards and just use <|> to combine all the
--- eithers and return the first right. I.e try each action in turn and return the first
--- valid action.
+
 handlePlayerTimeout :: PlayerName -> Game -> Either GameErr Game
 handlePlayerTimeout name game@Game {..}
   | playerCanCheck && handStarted =

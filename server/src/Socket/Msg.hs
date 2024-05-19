@@ -1,6 +1,4 @@
 {-# LANGUAGE LambdaCase #-}
--- TODO - Factor out repetitive STM actions that lookup table and throw stm error if not found
--- with monadic composition
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE TupleSections #-}

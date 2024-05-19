@@ -19,7 +19,7 @@ import Database.Redis
   )
 import System.Environment (lookupEnv)
 import Text.Read (readMaybe)
-import Web.JWT (secret)
+--import Web.JWT (secret)
 import Prelude
 
 getRedisHostFromEnv :: String -> IO ConnectInfo
